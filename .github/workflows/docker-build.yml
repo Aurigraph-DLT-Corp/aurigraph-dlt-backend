@@ -1,0 +1,42 @@
+name: Docker Build & Push
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push JVM image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./src/main/docker/Dockerfile.jvm
+          push: true
+          tags: |
+            aurigraph/backend:latest-jvm
+            aurigraph/backend:${{ github.sha }}-jvm
+
+      - name: Build and push native image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./src/main/docker/Dockerfile.native
+          push: true
+          tags: |
+            aurigraph/backend:latest
+            aurigraph/backend:${{ github.sha }}

@@ -1,0 +1,38 @@
+name: Backend Deploy - Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Production environment'
+        required: true
+        default: 'production'
+
+jobs:
+  deploy-prod:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      - name: Run production tests
+        run: ./mvnw clean verify -Pproduction-tests -B
+
+      - name: Build native image for production
+        run: ./mvnw package -Pnative -Dquarkus.native.container-build=true -B
+
+      - name: Build Docker image
+        run: docker build -t aurigraph-backend:prod -f src/main/docker/Dockerfile.native .
+
+      - name: Deploy to production
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+        run: echo "Deploying to production..."
