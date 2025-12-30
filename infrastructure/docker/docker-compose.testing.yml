@@ -1,0 +1,146 @@
+version: '3.9'
+
+# Testing Environment Configuration - Extends Base Services
+# This file configures the testing environment with optimized settings for performance and integration tests
+# Use with base: docker-compose -f docker-compose.base.yml -f docker-compose.testing.yml up -d
+
+services:
+  # Backend API - Testing Configuration (optimized for test performance)
+  backend-api:
+    environment:
+      # Test Mode
+      QUARKUS_PROFILE: test
+      QUARKUS_LOG_LEVEL: DEBUG
+      QUARKUS_LOG_CONSOLE_FORMAT: "%d{HH:mm:ss} %-5p [%c{2.}] %s%e%n"
+
+      # Performance Tuning for Tests
+      AURIGRAPH_PERFORMANCE_TARGET_TPS: 1000000
+      AURIGRAPH_PERFORMANCE_PARALLEL_THREADS: 64
+      AURIGRAPH_PERFORMANCE_TEST_MODE: "true"
+
+      # Database - Test Configuration
+      QUARKUS_DATASOURCE_JDBC_MAX_SIZE: 10
+      QUARKUS_HIBERNATE_ORM_LOG_SQL: "true"
+
+      # Testing Options
+      AURIGRAPH_TEST_SUITE_ENABLED: "true"
+      AURIGRAPH_BENCHMARK_ENABLED: "true"
+      AURIGRAPH_PERFORMANCE_TEST_ENABLED: "true"
+
+      # Timeouts - More generous for CI/CD
+      AURIGRAPH_CONSENSUS_TIMEOUT: 300
+      AURIGRAPH_TEST_TIMEOUT_SECONDS: 180
+
+  # PostgreSQL - Testing Configuration (with test data)
+  postgres:
+    environment:
+      POSTGRES_DB: aurigraph_test
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-test_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C -c shared_buffers=256MB -c max_connections=100"
+    volumes:
+      - ./test-init-db.sql:/docker-entrypoint-initdb.d/02-test-data.sql:ro
+    command: postgres -c log_statement=all -c log_min_duration_statement=1000
+
+  # Redis - Testing Configuration
+  redis:
+    command: redis-server --appendonly no --maxmemory 256mb --maxmemory-policy allkeys-lru
+    environment:
+      - REDIS_LOGLEVEL=debug
+
+  # Test Database - Separate instance for isolated testing
+  test-postgres:
+    image: postgres:16-alpine
+    container_name: aurigraph-test-postgres
+    environment:
+      POSTGRES_DB: aurigraph_test_isolated
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5433:5432"
+    volumes:
+      - test_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aurigraph-net
+    restart: unless-stopped
+
+  # Test Redis - Separate instance for isolated testing
+  test-redis:
+    image: redis:7-alpine
+    container_name: aurigraph-test-redis
+    command: redis-server --appendonly no --loglevel debug
+    ports:
+      - "6380:6379"
+    volumes:
+      - test_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aurigraph-net
+    restart: unless-stopped
+
+  # Performance Testing Service
+  performance-tester:
+    image: curlimages/curl:latest
+    container_name: aurigraph-performance-tester
+    depends_on:
+      - backend-api
+    command: >
+      sh -c '
+      echo "Waiting for backend-api to be ready..."
+      for i in {1..30}; do
+        curl -f http://backend-api:9003/q/health && echo "Backend ready!" && exit 0
+        echo "Attempt $$i/30, retrying in 2 seconds..."
+        sleep 2
+      done
+      echo "Backend failed to start"
+      exit 1
+      '
+    networks:
+      - aurigraph-net
+    restart: no
+
+  # Integration Test Container
+  integration-tester:
+    image: maven:3.9-eclipse-temurin-21
+    container_name: aurigraph-integration-tester
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace
+    environment:
+      MAVEN_OPTS: "-Xmx512m"
+    depends_on:
+      - backend-api
+      - test-postgres
+      - test-redis
+    command: >
+      mvn clean verify
+      -DskipTests=false
+      -Dtest.db.url=jdbc:postgresql://test-postgres:5432/aurigraph_test_isolated
+      -Dtest.db.user=test_user
+      -Dtest.db.password=test_password
+      -Dtest.redis.host=test-redis
+      -Dtest.redis.port=6379
+      -Dtest.api.host=backend-api
+      -Dtest.api.port=9003
+    networks:
+      - aurigraph-net
+    restart: no
+
+networks:
+  aurigraph-net:
+    driver: bridge
+
+volumes:
+  test_postgres_data:
+    driver: local
+  test_redis_data:
+    driver: local

@@ -1,0 +1,217 @@
+version: '3.9'
+
+# Production Deployment Configuration - Extends Base Services
+# This file applies production overrides: security, performance, monitoring, and resilience settings
+# Use with base: docker-compose -f docker-compose.base.yml -f docker-compose.validators.yml -f docker-compose.monitoring.yml -f docker-compose.production.yml up -d
+
+services:
+  # PostgreSQL - Production Configuration
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Database password required in production}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C -c shared_buffers=4GB -c max_connections=200 -c effective_cache_size=8GB"
+    volumes:
+      - postgres_backup:/pg_backups
+    command: >
+      postgres
+      -c log_statement=mod
+      -c log_duration=on
+      -c log_min_duration_statement=5000
+      -c maintenance_work_mem=1GB
+      -c work_mem=20MB
+      -c effective_io_concurrency=200
+      -c wal_level=replica
+      -c max_wal_senders=3
+      -c wal_keep_segments=64
+    restart: always
+
+  # Redis - Production Configuration
+  redis:
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:?Redis password required in production}
+      --appendonly yes
+      --appendfsync everysec
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --maxmemory 8gb
+      --maxmemory-policy allkeys-lru
+      --loglevel notice
+    restart: always
+
+  # Aurigraph Backend API - Production Configuration
+  backend-api:
+    restart: always
+    environment:
+      # Production Profile
+      QUARKUS_PROFILE: prod
+      QUARKUS_LOG_LEVEL: WARN
+      QUARKUS_LOG_CONSOLE_JSON: "true"
+
+      # Database - Production
+      QUARKUS_DATASOURCE_PASSWORD: ${DB_PASSWORD:?Database password required in production}
+      QUARKUS_DATASOURCE_JDBC_MAX_SIZE: 40
+      QUARKUS_DATASOURCE_JDBC_MIN_SIZE: 20
+      QUARKUS_DATASOURCE_JDBC_CONNECTION_TIMEOUT: 30s
+
+      # Redis - Production
+      QUARKUS_REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis password required in production}
+
+      # Security - Production
+      QUARKUS_SSL_NATIVE_ENABLED: "true"
+      QUARKUS_SSL_NATIVE_TRUST_STORE_PATH: /secrets/truststore.jks
+      QUARKUS_SSL_NATIVE_TRUST_STORE_PASSWORD: ${TRUSTSTORE_PASSWORD:?Truststore password required}
+      AURIGRAPH_CRYPTO_HSM_ENABLED: "true"
+      AURIGRAPH_CRYPTO_HSM_PROVIDER: softhsm
+
+      # Performance - Production (2M+ TPS target)
+      AURIGRAPH_PERFORMANCE_TARGET_TPS: 2000000
+      AURIGRAPH_PERFORMANCE_PARALLEL_THREADS: 256
+      AURIGRAPH_PERFORMANCE_ENABLE_ML_OPTIMIZATION: "true"
+      AURIGRAPH_PERFORMANCE_CACHE_SIZE_MB: 2048
+
+      # Monitoring - Production
+      QUARKUS_MICROMETER_ENABLED: "true"
+      QUARKUS_MICROMETER_EXPORT_PROMETHEUS_ENABLED: "true"
+      QUARKUS_MICROMETER_EXPORT_OTLP_ENABLED: "true"
+      QUARKUS_MICROMETER_EXPORT_OTLP_ENDPOINT: http://loki:3100
+
+      # High Availability
+      AURIGRAPH_HA_ENABLED: "true"
+      AURIGRAPH_HA_REPLICATION_FACTOR: 3
+      AURIGRAPH_HA_FAILOVER_TIMEOUT: 30000
+
+      # Consensus - Production
+      AURIGRAPH_CONSENSUS_TIMEOUT: 150
+      AURIGRAPH_CONSENSUS_FINALITY: 500
+      AURIGRAPH_CONSENSUS_MIN_VALIDATORS: 7
+      AURIGRAPH_CONSENSUS_HEARTBEAT_INTERVAL: 50
+
+      # API Configuration - Production
+      QUARKUS_HTTP_ACCESS_LOG_ENABLED: "true"
+      QUARKUS_HTTP_LIMITS_MAX_BODY_SIZE: 10M
+      QUARKUS_HTTP_LIMITS_MAX_FORM_SIZE: 10M
+    volumes:
+      - /secrets/prod:/secrets:ro
+      - backend_cache:/app/cache
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Validator Node 1 - Production Configuration
+  validator-node-1:
+    restart: always
+    environment:
+      QUARKUS_PROFILE: prod
+      QUARKUS_LOG_LEVEL: WARN
+      QUARKUS_DATASOURCE_PASSWORD: ${DB_PASSWORD:?Database password required}
+      QUARKUS_REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis password required}
+      AURIGRAPH_NODE_TYPE: validator
+      AURIGRAPH_VALIDATOR_STAKE: 100000
+      AURIGRAPH_PERFORMANCE_PARALLEL_THREADS: 128
+      AURIGRAPH_HA_ENABLED: "true"
+
+  # Validator Node 2 - Production Configuration
+  validator-node-2:
+    restart: always
+    environment:
+      QUARKUS_PROFILE: prod
+      QUARKUS_LOG_LEVEL: WARN
+      QUARKUS_DATASOURCE_PASSWORD: ${DB_PASSWORD:?Database password required}
+      QUARKUS_REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis password required}
+      AURIGRAPH_NODE_TYPE: validator
+      AURIGRAPH_VALIDATOR_STAKE: 100000
+      AURIGRAPH_PERFORMANCE_PARALLEL_THREADS: 128
+      AURIGRAPH_HA_ENABLED: "true"
+
+  # Validator Node 3 - Production Configuration
+  validator-node-3:
+    restart: always
+    environment:
+      QUARKUS_PROFILE: prod
+      QUARKUS_LOG_LEVEL: WARN
+      QUARKUS_DATASOURCE_PASSWORD: ${DB_PASSWORD:?Database password required}
+      QUARKUS_REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis password required}
+      AURIGRAPH_NODE_TYPE: validator
+      AURIGRAPH_VALIDATOR_STAKE: 100000
+      AURIGRAPH_PERFORMANCE_PARALLEL_THREADS: 128
+      AURIGRAPH_HA_ENABLED: "true"
+
+  # Prometheus - Production Configuration
+  prometheus:
+    restart: always
+    environment:
+      - PROMETHEUS_STORAGE_TSDB_RETENTION_TIME=90d
+      - PROMETHEUS_STORAGE_TSDB_MAX_BLOCK_DURATION=24h
+    volumes:
+      - prometheus_prod_data:/prometheus
+
+  # Grafana - Production Configuration
+  grafana:
+    restart: always
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?Grafana password required}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SMTP_ENABLED: "true"
+      GF_SMTP_HOST: ${SMTP_HOST:?SMTP host required for production}
+      GF_SMTP_USER: ${SMTP_USER:?SMTP user required}
+      GF_SMTP_PASSWORD: ${SMTP_PASSWORD:?SMTP password required}
+
+  # Loki - Production Configuration
+  loki:
+    restart: always
+    volumes:
+      - loki_prod_data:/loki
+
+  # NGINX Reverse Proxy - Production Configuration
+  nginx:
+    image: nginx:alpine
+    container_name: aurigraph-nginx
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - nginx_cache:/var/cache/nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - BACKEND_HOST=backend-api
+      - BACKEND_PORT=9003
+      - VALIDATOR_HOSTS=validator-node-1:9010,validator-node-2:9011,validator-node-3:9012
+      - GRAFANA_HOST=grafana:3000
+      - LOKI_HOST=loki:3100
+    depends_on:
+      - backend-api
+      - validator-node-1
+      - grafana
+      - loki
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aurigraph-net
+    restart: always
+    labels:
+      - "com.aurigraph.service=nginx"
+      - "com.aurigraph.tier=gateway"
+
+networks:
+  aurigraph-net:
+    driver: bridge
+
+volumes:
+  postgres_backup:
+    driver: local
+  backend_cache:
+    driver: local
+  prometheus_prod_data:
+    driver: local
+  loki_prod_data:
+    driver: local
+  nginx_cache:
+    driver: local

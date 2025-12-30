@@ -1,0 +1,177 @@
+version: '3.9'
+
+# Validator Nodes Configuration - Extends Base Services
+# This file adds validator nodes for consensus participation
+# Use with base: docker-compose -f docker-compose.base.yml -f docker-compose.validators.yml up -d
+
+services:
+  # Validator Node 1 - Consensus Participant
+  validator-node-1:
+    image: aurigraph-backend:latest
+    container_name: aurigraph-validator-1
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        JAVA_VERSION: 21
+    environment:
+      # Server Configuration
+      QUARKUS_HTTP_PORT: 9010
+      QUARKUS_HTTP_HOST: 0.0.0.0
+      QUARKUS_APPLICATION_NAME: aurigraph-validator-1
+
+      # Database Configuration (Shared with backend-api)
+      QUARKUS_DATASOURCE_DB_KIND: postgresql
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/aurigraph_v12
+      QUARKUS_DATASOURCE_USERNAME: aurigraph
+      QUARKUS_DATASOURCE_PASSWORD: ${DB_PASSWORD:-aurigraph_dev_password}
+
+      # Redis Configuration (Shared)
+      QUARKUS_REDIS_HOSTS: redis://redis:6379
+      QUARKUS_REDIS_PASSWORD: ${REDIS_PASSWORD:-aurigraph_dev_password}
+
+      # Validator-Specific Configuration
+      AURIGRAPH_NODE_TYPE: validator
+      AURIGRAPH_NODE_ID: validator-1
+      AURIGRAPH_NODE_PORT: 9010
+      AURIGRAPH_VALIDATOR_STAKE: 10000
+      AURIGRAPH_VALIDATOR_MIN_STAKE: 1000
+
+      # Consensus Configuration
+      AURIGRAPH_CONSENSUS_ALGORITHM: hyperraft++
+      AURIGRAPH_CONSENSUS_PEERS: "backend-api:9003,validator-node-2:9011,validator-node-3:9012"
+
+      # Cryptography
+      AURIGRAPH_CRYPTO_QUANTUM_LEVEL: 5
+
+      # Logging
+      QUARKUS_LOG_LEVEL: INFO
+    ports:
+      - "9010:9010"
+    depends_on:
+      - postgres
+      - redis
+      - backend-api
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9010/q/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aurigraph-net
+    restart: unless-stopped
+    labels:
+      - "com.aurigraph.service=validator"
+      - "com.aurigraph.validator-id=1"
+
+  # Validator Node 2 - Consensus Participant
+  validator-node-2:
+    image: aurigraph-backend:latest
+    container_name: aurigraph-validator-2
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        JAVA_VERSION: 21
+    environment:
+      QUARKUS_HTTP_PORT: 9011
+      QUARKUS_HTTP_HOST: 0.0.0.0
+      QUARKUS_APPLICATION_NAME: aurigraph-validator-2
+
+      QUARKUS_DATASOURCE_DB_KIND: postgresql
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/aurigraph_v12
+      QUARKUS_DATASOURCE_USERNAME: aurigraph
+      QUARKUS_DATASOURCE_PASSWORD: ${DB_PASSWORD:-aurigraph_dev_password}
+
+      QUARKUS_REDIS_HOSTS: redis://redis:6379
+      QUARKUS_REDIS_PASSWORD: ${REDIS_PASSWORD:-aurigraph_dev_password}
+
+      AURIGRAPH_NODE_TYPE: validator
+      AURIGRAPH_NODE_ID: validator-2
+      AURIGRAPH_NODE_PORT: 9011
+      AURIGRAPH_VALIDATOR_STAKE: 10000
+      AURIGRAPH_VALIDATOR_MIN_STAKE: 1000
+
+      AURIGRAPH_CONSENSUS_ALGORITHM: hyperraft++
+      AURIGRAPH_CONSENSUS_PEERS: "backend-api:9003,validator-node-1:9010,validator-node-3:9012"
+
+      AURIGRAPH_CRYPTO_QUANTUM_LEVEL: 5
+      QUARKUS_LOG_LEVEL: INFO
+    ports:
+      - "9011:9011"
+    depends_on:
+      - postgres
+      - redis
+      - backend-api
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9011/q/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aurigraph-net
+    restart: unless-stopped
+    labels:
+      - "com.aurigraph.service=validator"
+      - "com.aurigraph.validator-id=2"
+
+  # Validator Node 3 - Consensus Participant
+  validator-node-3:
+    image: aurigraph-backend:latest
+    container_name: aurigraph-validator-3
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        JAVA_VERSION: 21
+    environment:
+      QUARKUS_HTTP_PORT: 9012
+      QUARKUS_HTTP_HOST: 0.0.0.0
+      QUARKUS_APPLICATION_NAME: aurigraph-validator-3
+
+      QUARKUS_DATASOURCE_DB_KIND: postgresql
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/aurigraph_v12
+      QUARKUS_DATASOURCE_USERNAME: aurigraph
+      QUARKUS_DATASOURCE_PASSWORD: ${DB_PASSWORD:-aurigraph_dev_password}
+
+      QUARKUS_REDIS_HOSTS: redis://redis:6379
+      QUARKUS_REDIS_PASSWORD: ${REDIS_PASSWORD:-aurigraph_dev_password}
+
+      AURIGRAPH_NODE_TYPE: validator
+      AURIGRAPH_NODE_ID: validator-3
+      AURIGRAPH_NODE_PORT: 9012
+      AURIGRAPH_VALIDATOR_STAKE: 10000
+      AURIGRAPH_VALIDATOR_MIN_STAKE: 1000
+
+      AURIGRAPH_CONSENSUS_ALGORITHM: hyperraft++
+      AURIGRAPH_CONSENSUS_PEERS: "backend-api:9003,validator-node-1:9010,validator-node-2:9011"
+
+      AURIGRAPH_CRYPTO_QUANTUM_LEVEL: 5
+      QUARKUS_LOG_LEVEL: INFO
+    ports:
+      - "9012:9012"
+    depends_on:
+      - postgres
+      - redis
+      - backend-api
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9012/q/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aurigraph-net
+    restart: unless-stopped
+    labels:
+      - "com.aurigraph.service=validator"
+      - "com.aurigraph.validator-id=3"
+
+networks:
+  aurigraph-net:
+    driver: bridge
+
+volumes:
+  # Volumes are inherited from base configuration
