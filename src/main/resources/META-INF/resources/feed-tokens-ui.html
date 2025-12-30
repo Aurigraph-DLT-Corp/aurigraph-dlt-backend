@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feed Tokens - Throughput Dashboard | Aurigraph DLT</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left h1 {
+            color: #1e3c72;
+            font-size: 36px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header-left p {
+            color: #666;
+            font-size: 18px;
+        }
+
+        .header-right {
+            text-align: right;
+        }
+
+        .market-cap {
+            font-size: 14px;
+            color: #999;
+            margin-bottom: 5px;
+        }
+
+        .market-cap-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #1e3c72;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .stat-value {
+            font-size: 42px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .stat-change {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .stat-change.positive {
+            color: #4caf50;
+        }
+
+        .stat-change.negative {
+            color: #f44336;
+        }
+
+        .tokens-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .token-card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .token-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, rgba(102,126,234,0.1), rgba(118,75,162,0.1));
+            border-radius: 0 20px 0 100%;
+        }
+
+        .token-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+        }
+
+        .token-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 20px;
+        }
+
+        .token-symbol {
+            font-size: 28px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .token-name {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .token-price {
+            text-align: right;
+        }
+
+        .price-label {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .price-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .throughput-meter {
+            background: #f5f5f5;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+
+        .throughput-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: #666;
+        }
+
+        .throughput-bar-container {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .throughput-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50, #8bc34a);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+            position: relative;
+        }
+
+        .throughput-bar.high {
+            background: linear-gradient(90deg, #4caf50, #8bc34a);
+        }
+
+        .throughput-bar.medium {
+            background: linear-gradient(90deg, #ff9800, #ffc107);
+        }
+
+        .throughput-bar.low {
+            background: linear-gradient(90deg, #f44336, #e91e63);
+        }
+
+        .throughput-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .throughput-unit {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .token-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .mini-stat {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .mini-stat-label {
+            font-size: 11px;
+            color: #999;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .mini-stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-mint {
+            background: linear-gradient(135deg, #4caf50, #8bc34a);
+            color: white;
+        }
+
+        .btn-mint:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+        }
+
+        .btn-burn {
+            background: linear-gradient(135deg, #f44336, #e91e63);
+            color: white;
+        }
+
+        .btn-burn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(244, 67, 54, 0.4);
+        }
+
+        .btn-view {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-view:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .modal-header h2 {
+            font-size: 28px;
+            color: #333;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 32px;
+            cursor: pointer;
+            color: #999;
+            transition: color 0.3s ease;
+        }
+
+        .modal-close:hover {
+            color: #333;
+        }
+
+        .chart-container {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            height: 300px;
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .chart-bar {
+            flex: 1;
+            background: linear-gradient(to top, #667eea, #764ba2);
+            border-radius: 4px 4px 0 0;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .chart-bar:hover {
+            opacity: 0.8;
+        }
+
+        .chart-tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .chart-bar:hover .chart-tooltip {
+            opacity: 1;
+        }
+
+        .transaction-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .transaction-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tx-type {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .tx-type.mint {
+            background: #c8e6c9;
+            color: #2e7d32;
+        }
+
+        .tx-type.burn {
+            background: #ffcdd2;
+            color: #c62828;
+        }
+
+        .live-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #4caf50;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .live-dot {
+            width: 10px;
+            height: 10px;
+            background: #4caf50;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.5;
+                transform: scale(1.2);
+            }
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-success {
+            background: #c8e6c9;
+            color: #2e7d32;
+        }
+
+        .badge-warning {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .loading-spinner {
+            text-align: center;
+            padding: 60px;
+            font-size: 18px;
+            color: #999;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .refresh-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .refresh-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <h1>
+                    <span>🪙</span>
+                    Feed Tokens Dashboard
+                    <span class="live-indicator">
+                        <span class="live-dot"></span>
+                        LIVE
+                    </span>
+                </h1>
+                <p>Real-time throughput tracking and tokenization for data feeds</p>
+            </div>
+            <div class="header-right">
+                <div class="market-cap">Total Market Cap</div>
+                <div class="market-cap-value" id="total-market-cap">$0</div>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Supply</div>
+                <div class="stat-value" id="stat-total-supply">-</div>
+                <div class="stat-change positive">+12.5% this week</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Circulating Supply</div>
+                <div class="stat-value" id="stat-circulating">-</div>
+                <div class="stat-change positive">+8.3% this week</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Throughput</div>
+                <div class="stat-value" id="stat-throughput">-</div>
+                <div class="stat-change positive">+25.7% this hour</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Peak Throughput</div>
+                <div class="stat-value" id="stat-peak">-</div>
+                <div class="stat-change">All-time high</div>
+            </div>
+        </div>
+
+        <div id="tokens-container" class="tokens-grid">
+            <div class="loading-spinner">Loading feed tokens...</div>
+        </div>
+    </div>
+
+    <!-- Token Details Modal -->
+    <div id="token-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Token Details</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <button class="refresh-btn" onclick="refreshAll()" title="Refresh Data">🔄</button>
+
+    <script>
+        const API_BASE = window.location.origin + '/api/v11/feed-tokens';
+        let tokens = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+            loadTokens();
+            // Auto-refresh every 10 seconds
+            setInterval(() => {
+                loadStats();
+                loadTokens();
+            }, 10000);
+        });
+
+        // Load Overall Statistics
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_BASE}/stats`);
+                const data = await response.json();
+
+                document.getElementById('stat-total-supply').textContent = formatNumber(data.totalSupply);
+                document.getElementById('stat-circulating').textContent = formatNumber(data.totalCirculating);
+                document.getElementById('stat-throughput').textContent = formatTPS(data.totalThroughput);
+                document.getElementById('stat-peak').textContent = formatTPS(data.peakThroughput);
+
+                const marketCap = parseFloat(data.totalMarketCap) || 0;
+                document.getElementById('total-market-cap').textContent = '$' + formatNumber(marketCap.toFixed(0));
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // Load All Tokens
+        async function loadTokens() {
+            try {
+                const response = await fetch(`${API_BASE}?sortBy=throughput`);
+                const data = await response.json();
+                tokens = data.tokens || [];
+
+                const container = document.getElementById('tokens-container');
+
+                if (tokens.length === 0) {
+                    container.innerHTML = '<div class="loading-spinner">No tokens available</div>';
+                    return;
+                }
+
+                container.innerHTML = tokens.map(token => createTokenCard(token)).join('');
+            } catch (error) {
+                console.error('Error loading tokens:', error);
+            }
+        }
+
+        // Create Token Card HTML
+        function createTokenCard(token) {
+            const throughputPercent = Math.min((token.currentThroughput / token.peakThroughput) * 100, 100);
+            const throughputClass = throughputPercent > 70 ? 'high' : throughputPercent > 40 ? 'medium' : 'low';
+            const marketCap = (parseFloat(token.tokenValue) * token.circulatingSupply).toFixed(2);
+
+            return `
+                <div class="token-card">
+                    <div class="token-header">
+                        <div>
+                            <div class="token-symbol">${token.tokenSymbol}</div>
+                            <div class="token-name">${token.feedName}</div>
+                        </div>
+                        <div class="token-price">
+                            <div class="price-label">Price</div>
+                            <div class="price-value">$${token.tokenValue}</div>
+                        </div>
+                    </div>
+
+                    <div class="throughput-meter">
+                        <div class="throughput-label">
+                            <span>Current Throughput</span>
+                            <span>${throughputPercent.toFixed(1)}% of peak</span>
+                        </div>
+                        <div class="throughput-bar-container">
+                            <div class="throughput-bar ${throughputClass}" style="width: ${throughputPercent}%"></div>
+                        </div>
+                        <div class="throughput-value">
+                            ${formatTPS(token.currentThroughput)}
+                            <span class="throughput-unit">tokens/sec</span>
+                        </div>
+                    </div>
+
+                    <div class="token-stats">
+                        <div class="mini-stat">
+                            <div class="mini-stat-label">Total Supply</div>
+                            <div class="mini-stat-value">${formatNumber(token.totalSupply)}</div>
+                        </div>
+                        <div class="mini-stat">
+                            <div class="mini-stat-label">Market Cap</div>
+                            <div class="mini-stat-value">$${formatNumber(marketCap)}</div>
+                        </div>
+                        <div class="mini-stat">
+                            <div class="mini-stat-label">Circulating</div>
+                            <div class="mini-stat-value">${formatNumber(token.circulatingSupply)}</div>
+                        </div>
+                        <div class="mini-stat">
+                            <div class="mini-stat-label">Peak TPS</div>
+                            <div class="mini-stat-value">${formatTPS(token.peakThroughput)}</div>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="btn btn-mint" onclick="mintTokens('${token.feedId}')">Mint</button>
+                        <button class="btn btn-burn" onclick="burnTokens('${token.feedId}')">Burn</button>
+                        <button class="btn btn-view" onclick="viewTokenDetails('${token.feedId}')">Details</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // View Token Details
+        async function viewTokenDetails(feedId) {
+            try {
+                const [tokenRes, txRes, historyRes] = await Promise.all([
+                    fetch(`${API_BASE}/${feedId}`),
+                    fetch(`${API_BASE}/${feedId}/transactions?limit=10`),
+                    fetch(`${API_BASE}/${feedId}/throughput/history?period=1h`)
+                ]);
+
+                const tokenData = await tokenRes.json();
+                const txData = await txRes.json();
+                const historyData = await historyRes.json();
+
+                const modal = document.getElementById('token-modal');
+                const modalTitle = document.getElementById('modal-title');
+                const modalBody = document.getElementById('modal-body');
+
+                modalTitle.textContent = tokenData.token.tokenSymbol + ' - Detailed Analytics';
+
+                // Create throughput chart
+                const chartHTML = createThroughputChart(historyData.history);
+
+                // Create transaction list
+                const txListHTML = createTransactionList(txData.transactions);
+
+                modalBody.innerHTML = `
+                    <div>
+                        <h3 style="margin-bottom: 15px;">📊 Throughput History (Last Hour)</h3>
+                        ${chartHTML}
+                    </div>
+                    <div style="margin-top: 30px;">
+                        <h3 style="margin-bottom: 15px;">📜 Recent Transactions</h3>
+                        ${txListHTML}
+                    </div>
+                    <div style="margin-top: 30px;">
+                        <h3 style="margin-bottom: 15px;">ℹ️ Token Information</h3>
+                        <div class="mini-stat" style="padding: 20px;">
+                            <p><strong>Description:</strong> ${tokenData.token.description}</p>
+                            <p style="margin-top: 10px;"><strong>Feed ID:</strong> ${tokenData.token.feedId}</p>
+                            <p style="margin-top: 10px;"><strong>Created:</strong> ${new Date(tokenData.token.createdAt).toLocaleDateString()}</p>
+                            <p style="margin-top: 10px;"><strong>Last Mint:</strong> ${new Date(tokenData.token.lastMint).toLocaleString()}</p>
+                        </div>
+                    </div>
+                `;
+
+                modal.classList.add('show');
+            } catch (error) {
+                console.error('Error loading token details:', error);
+            }
+        }
+
+        // Create Throughput Chart
+        function createThroughputChart(history) {
+            if (!history || history.length === 0) {
+                return '<div class="chart-container"><p>No data available</p></div>';
+            }
+
+            const maxTPS = Math.max(...history.map(h => h.tokensPerSecond));
+
+            const bars = history.map(point => {
+                const height = (point.tokensPerSecond / maxTPS) * 100;
+                const time = new Date(point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                return `
+                    <div class="chart-bar" style="height: ${height}%">
+                        <div class="chart-tooltip">
+                            ${time}<br>
+                            ${formatTPS(point.tokensPerSecond)}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            return `<div class="chart-container">${bars}</div>`;
+        }
+
+        // Create Transaction List
+        function createTransactionList(transactions) {
+            if (!transactions || transactions.length === 0) {
+                return '<div class="transaction-item">No transactions yet</div>';
+            }
+
+            return `
+                <div class="transaction-list">
+                    ${transactions.map(tx => `
+                        <div class="transaction-item">
+                            <div>
+                                <span class="tx-type ${tx.type.toLowerCase()}">${tx.type}</span>
+                                <span style="margin-left: 10px; font-size: 12px; color: #999;">${new Date(tx.timestamp).toLocaleString()}</span>
+                                <div style="font-size: 12px; color: #666; margin-top: 5px;">${tx.reason}</div>
+                            </div>
+                            <div style="font-weight: bold; font-size: 18px;">
+                                ${tx.type === 'MINT' ? '+' : '-'}${formatNumber(tx.amount)}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // Mint Tokens
+        async function mintTokens(feedId) {
+            const amount = prompt('Enter amount to mint (leave empty for auto-calculate):');
+
+            try {
+                const body = amount ? { amount: parseInt(amount) } : {};
+                const response = await fetch(`${API_BASE}/${feedId}/mint`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                const data = await response.json();
+                alert(`✅ Successfully minted ${formatNumber(data.tokensMinted)} tokens!`);
+                await loadTokens();
+                await loadStats();
+            } catch (error) {
+                console.error('Error minting tokens:', error);
+                alert('❌ Error minting tokens');
+            }
+        }
+
+        // Burn Tokens
+        async function burnTokens(feedId) {
+            const amount = prompt('Enter amount to burn:');
+            if (!amount) return;
+
+            const reason = prompt('Reason for burning:') || 'Manual burn';
+
+            try {
+                const response = await fetch(`${API_BASE}/${feedId}/burn`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount: parseInt(amount), reason })
+                });
+
+                const data = await response.json();
+                alert(`✅ Successfully burned ${formatNumber(data.tokensBurned)} tokens!`);
+                await loadTokens();
+                await loadStats();
+            } catch (error) {
+                console.error('Error burning tokens:', error);
+                alert('❌ Error burning tokens');
+            }
+        }
+
+        // Close Modal
+        function closeModal() {
+            document.getElementById('token-modal').classList.remove('show');
+        }
+
+        // Refresh All Data
+        async function refreshAll() {
+            await loadStats();
+            await loadTokens();
+        }
+
+        // Format Number
+        function formatNumber(num) {
+            return new Intl.NumberFormat().format(num);
+        }
+
+        // Format TPS
+        function formatTPS(tps) {
+            if (tps >= 1000000) return (tps / 1000000).toFixed(2) + 'M';
+            if (tps >= 1000) return (tps / 1000).toFixed(2) + 'K';
+            return tps.toFixed(2);
+        }
+
+        // Close modal on click outside
+        document.getElementById('token-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'token-modal') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>

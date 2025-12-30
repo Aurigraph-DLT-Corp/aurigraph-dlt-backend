@@ -1,0 +1,329 @@
+# Prometheus Alert Rules for Aurigraph V11
+# Stream 5: Production Monitoring & Deployment
+#
+# Comprehensive alerting covering:
+# - Critical infrastructure failures
+# - Performance degradation
+# - Security incidents
+# - Consensus issues
+
+groups:
+  # ==================== CRITICAL ALERTS (5 rules) ====================
+
+  - name: critical_infrastructure
+    interval: 30s
+    rules:
+      # Alert 1: Service Down
+      - alert: AurigraphServiceDown
+        expr: up{job="aurigraph-v11"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Aurigraph V11 service is down"
+          description: "The Aurigraph V11 service on {{ $labels.instance }} has been down for more than 1 minute."
+          runbook: "https://docs.aurigraph.io/runbooks/service-down"
+
+      # Alert 2: CPU Critical
+      - alert: CPUCriticalUsage
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 5m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Critical CPU usage on {{ $labels.instance }}"
+          description: "CPU usage has been above 90% for 5 minutes on {{ $labels.instance }}. Current: {{ $value }}%"
+          runbook: "https://docs.aurigraph.io/runbooks/high-cpu"
+
+      # Alert 3: Memory Critical
+      - alert: MemoryCriticalUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 5m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Critical memory usage on {{ $labels.instance }}"
+          description: "Memory usage has been above 90% for 5 minutes on {{ $labels.instance }}. Current: {{ $value }}%"
+          runbook: "https://docs.aurigraph.io/runbooks/high-memory"
+
+      # Alert 4: Disk Critical
+      - alert: DiskCriticalUsage
+        expr: (1 - (node_filesystem_avail_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"})) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Critical disk usage on {{ $labels.instance }}"
+          description: "Disk usage has exceeded 95% on {{ $labels.instance }} at {{ $labels.mountpoint }}. Current: {{ $value }}%"
+          runbook: "https://docs.aurigraph.io/runbooks/disk-full"
+
+      # Alert 5: Consensus Failure
+      - alert: ConsensusFailure
+        expr: rate(aurigraph_consensus_failures_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: consensus
+        annotations:
+          summary: "Consensus mechanism failure detected"
+          description: "HyperRAFT++ consensus has failed on {{ $labels.instance }}. Immediate investigation required."
+          runbook: "https://docs.aurigraph.io/runbooks/consensus-failure"
+
+  # ==================== HIGH PRIORITY ALERTS (10 rules) ====================
+
+  - name: high_priority_performance
+    interval: 1m
+    rules:
+      # Alert 6: Low TPS
+      - alert: LowTransactionsPerSecond
+        expr: rate(aurigraph_transactions_processed_total[1m]) < 100000
+        for: 10m
+        labels:
+          severity: high
+          component: performance
+        annotations:
+          summary: "Transaction throughput below threshold"
+          description: "TPS has been below 100K for 10 minutes on {{ $labels.instance }}. Current: {{ $value }} TPS"
+          runbook: "https://docs.aurigraph.io/runbooks/low-tps"
+
+      # Alert 7: High Latency P99
+      - alert: HighLatencyP99
+        expr: histogram_quantile(0.99, rate(aurigraph_transaction_duration_seconds_bucket[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: high
+          component: performance
+        annotations:
+          summary: "High P99 latency detected"
+          description: "P99 transaction latency is above 500ms on {{ $labels.instance }}. Current: {{ $value }}s"
+          runbook: "https://docs.aurigraph.io/runbooks/high-latency"
+
+      # Alert 8: High Error Rate
+      - alert: HighErrorRate
+        expr: (rate(aurigraph_transactions_failed_total[5m]) / rate(aurigraph_transactions_total[5m])) * 100 > 1
+        for: 5m
+        labels:
+          severity: high
+          component: reliability
+        annotations:
+          summary: "Transaction error rate above 1%"
+          description: "Error rate is {{ $value }}% on {{ $labels.instance }}, exceeding 1% threshold."
+          runbook: "https://docs.aurigraph.io/runbooks/high-errors"
+
+      # Alert 9: Transaction Queue Backlog
+      - alert: TransactionQueueBacklog
+        expr: aurigraph_transaction_queue_size > 100000
+        for: 5m
+        labels:
+          severity: high
+          component: performance
+        annotations:
+          summary: "Transaction queue backlog detected"
+          description: "Transaction queue has {{ $value }} pending transactions on {{ $labels.instance }}"
+          runbook: "https://docs.aurigraph.io/runbooks/queue-backlog"
+
+      # Alert 10: Bridge Transaction Stuck
+      - alert: BridgeTransactionStuck
+        expr: time() - aurigraph_bridge_transaction_oldest_pending_timestamp > 3600
+        for: 5m
+        labels:
+          severity: high
+          component: bridge
+        annotations:
+          summary: "Bridge transaction pending for over 1 hour"
+          description: "Cross-chain bridge transaction has been pending for {{ $value }}s on {{ $labels.instance }}"
+          runbook: "https://docs.aurigraph.io/runbooks/bridge-stuck"
+
+      # Alert 11: Consensus Timeout
+      - alert: ConsensusTimeout
+        expr: rate(aurigraph_consensus_timeouts_total[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: high
+          component: consensus
+        annotations:
+          summary: "Consensus timeouts detected"
+          description: "{{ $value }} consensus timeouts per second on {{ $labels.instance }}"
+          runbook: "https://docs.aurigraph.io/runbooks/consensus-timeout"
+
+      # Alert 12: Leader Election Failure
+      - alert: LeaderElectionFailure
+        expr: changes(aurigraph_consensus_leader_id[10m]) > 3
+        for: 2m
+        labels:
+          severity: high
+          component: consensus
+        annotations:
+          summary: "Frequent leader elections detected"
+          description: "Leader has changed {{ $value }} times in 10 minutes on {{ $labels.instance }}"
+          runbook: "https://docs.aurigraph.io/runbooks/leader-instability"
+
+      # Alert 13: Network Partition Detected
+      - alert: NetworkPartitionDetected
+        expr: aurigraph_consensus_cluster_size < aurigraph_consensus_expected_cluster_size
+        for: 2m
+        labels:
+          severity: high
+          component: network
+        annotations:
+          summary: "Network partition or node failure detected"
+          description: "Cluster size is {{ $value }} but expected {{ aurigraph_consensus_expected_cluster_size }}"
+          runbook: "https://docs.aurigraph.io/runbooks/network-partition"
+
+      # Alert 14: Quantum Signature Failure
+      - alert: QuantumSignatureFailure
+        expr: rate(aurigraph_crypto_signature_verification_failures_total[5m]) > 0.01
+        for: 3m
+        labels:
+          severity: high
+          component: security
+        annotations:
+          summary: "Quantum cryptographic signature failures"
+          description: "{{ $value }} signature verification failures per second on {{ $labels.instance }}"
+          runbook: "https://docs.aurigraph.io/runbooks/crypto-failure"
+
+      # Alert 15: High Invalid Transaction Rate
+      - alert: HighInvalidTransactionRate
+        expr: (rate(aurigraph_transactions_invalid_total[5m]) / rate(aurigraph_transactions_total[5m])) * 100 > 5
+        for: 5m
+        labels:
+          severity: high
+          component: security
+        annotations:
+          summary: "Invalid transaction rate above 5%"
+          description: "{{ $value }}% of transactions are invalid on {{ $labels.instance }}. Possible attack."
+          runbook: "https://docs.aurigraph.io/runbooks/invalid-transactions"
+
+  # ==================== MEDIUM PRIORITY ALERTS (5 rules) ====================
+
+  - name: medium_priority_warnings
+    interval: 2m
+    rules:
+      # Alert 16: Elevated CPU Usage
+      - alert: ElevatedCPUUsage
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 75
+        for: 15m
+        labels:
+          severity: medium
+          component: infrastructure
+        annotations:
+          summary: "Elevated CPU usage on {{ $labels.instance }}"
+          description: "CPU usage has been above 75% for 15 minutes. Current: {{ $value }}%"
+          runbook: "https://docs.aurigraph.io/runbooks/elevated-cpu"
+
+      # Alert 17: Elevated Memory Usage
+      - alert: ElevatedMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 75
+        for: 15m
+        labels:
+          severity: medium
+          component: infrastructure
+        annotations:
+          summary: "Elevated memory usage on {{ $labels.instance }}"
+          description: "Memory usage has been above 75% for 15 minutes. Current: {{ $value }}%"
+          runbook: "https://docs.aurigraph.io/runbooks/elevated-memory"
+
+      # Alert 18: Elevated Disk Usage
+      - alert: ElevatedDiskUsage
+        expr: (1 - (node_filesystem_avail_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"})) * 100 > 80
+        for: 10m
+        labels:
+          severity: medium
+          component: infrastructure
+        annotations:
+          summary: "Elevated disk usage on {{ $labels.instance }}"
+          description: "Disk usage is above 80% at {{ $labels.mountpoint }}. Current: {{ $value }}%"
+          runbook: "https://docs.aurigraph.io/runbooks/elevated-disk"
+
+      # Alert 19: Reduced TPS
+      - alert: ReducedTransactionsPerSecond
+        expr: rate(aurigraph_transactions_processed_total[1m]) < 500000
+        for: 30m
+        labels:
+          severity: medium
+          component: performance
+        annotations:
+          summary: "Transaction throughput below optimal"
+          description: "TPS has been below 500K for 30 minutes on {{ $labels.instance }}. Current: {{ $value }} TPS"
+          runbook: "https://docs.aurigraph.io/runbooks/reduced-tps"
+
+      # Alert 20: Elevated Response Time P95
+      - alert: ElevatedResponseTimeP95
+        expr: histogram_quantile(0.95, rate(aurigraph_transaction_duration_seconds_bucket[5m])) > 0.2
+        for: 10m
+        labels:
+          severity: medium
+          component: performance
+        annotations:
+          summary: "Elevated P95 response time"
+          description: "P95 transaction latency is above 200ms on {{ $labels.instance }}. Current: {{ $value }}s"
+          runbook: "https://docs.aurigraph.io/runbooks/elevated-latency"
+
+  # ==================== ADDITIONAL OPERATIONAL ALERTS ====================
+
+  - name: operational_health
+    interval: 2m
+    rules:
+      # JVM Heap Usage
+      - alert: HighJVMHeapUsage
+        expr: (jvm_memory_used_bytes{area="heap"} / jvm_memory_max_bytes{area="heap"}) * 100 > 85
+        for: 5m
+        labels:
+          severity: medium
+          component: jvm
+        annotations:
+          summary: "High JVM heap usage on {{ $labels.instance }}"
+          description: "JVM heap usage is {{ $value }}% on {{ $labels.instance }}"
+          runbook: "https://docs.aurigraph.io/runbooks/jvm-heap"
+
+      # GC Pressure
+      - alert: HighGCPressure
+        expr: rate(jvm_gc_pause_seconds_sum[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: medium
+          component: jvm
+        annotations:
+          summary: "High GC pressure on {{ $labels.instance }}"
+          description: "GC is consuming {{ $value }}s per second on {{ $labels.instance }}"
+          runbook: "https://docs.aurigraph.io/runbooks/gc-pressure"
+
+      # Connection Pool Exhaustion
+      - alert: ConnectionPoolExhaustion
+        expr: (hikaricp_connections_active / hikaricp_connections_max) * 100 > 90
+        for: 3m
+        labels:
+          severity: high
+          component: database
+        annotations:
+          summary: "Connection pool near exhaustion"
+          description: "{{ $value }}% of database connections in use on {{ $labels.instance }}"
+          runbook: "https://docs.aurigraph.io/runbooks/connection-pool"
+
+      # Certificate Expiration Warning
+      - alert: CertificateExpirationWarning
+        expr: (x509_cert_not_after - time()) / 86400 < 30
+        for: 1h
+        labels:
+          severity: medium
+          component: security
+        annotations:
+          summary: "TLS certificate expiring soon"
+          description: "Certificate {{ $labels.subject }} expires in {{ $value }} days"
+          runbook: "https://docs.aurigraph.io/runbooks/cert-expiration"
+
+      # API Rate Limit Approaching
+      - alert: APIRateLimitApproaching
+        expr: (rate(aurigraph_api_requests_total[5m]) / aurigraph_api_rate_limit) * 100 > 80
+        for: 5m
+        labels:
+          severity: medium
+          component: api
+        annotations:
+          summary: "API rate limit approaching threshold"
+          description: "API requests at {{ $value }}% of rate limit on {{ $labels.instance }}"
+          runbook: "https://docs.aurigraph.io/runbooks/rate-limit"

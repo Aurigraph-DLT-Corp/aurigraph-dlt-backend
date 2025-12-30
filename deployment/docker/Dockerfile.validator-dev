@@ -1,0 +1,92 @@
+################################################################################
+# Dockerfile.validator-dev - Validator Node Development Build
+# Purpose: Consensus participation with debugging and monitoring enabled
+# Resources: 8-16 CPU cores, 2-4GB RAM (development environment)
+# Build Type: Development - Includes debug symbols, verbose logging
+################################################################################
+
+FROM ghcr.io/graalvm/native-image-community:21-muslib AS build
+
+WORKDIR /build
+COPY .mvn/ .mvn/
+COPY mvnw pom.xml ./
+RUN ./mvnw dependency:go-offline -B
+
+COPY src/ src/
+# Development build with debug symbols and verbose output
+RUN ./mvnw clean package \
+    -Pnative \
+    -DskipTests=false \
+    -Dquarkus.native.container-build=false \
+    -Dquarkus.native.native-image-xmx=4g \
+    -Dquarkus.native.debug-symbols=true \
+    -Dquarkus.native.strip-symbols=false
+
+################################################################################
+# Runtime Stage - Development
+################################################################################
+
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3
+
+# Install development tools and runtime dependencies
+RUN microdnf install -y \
+    supervisor \
+    util-linux \
+    procps-ng \
+    libstdc++ \
+    zlib \
+    curl \
+    git \
+    && microdnf clean all
+
+WORKDIR /app
+
+# Copy native executable with symbols
+COPY --from=build --chown=1001:root /build/target/*-runner /app/aurigraph-v11
+
+# Copy multi-node launcher and config
+COPY --chown=1001:root scripts/multi-node-launcher.sh /app/
+COPY --chown=1001:root config/supervisord-validator.conf /etc/supervisord.conf
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/data /app/pids /app/config && \
+    chmod +x /app/multi-node-launcher.sh /app/aurigraph-v11
+
+# Development environment with verbose logging
+ENV NODE_TYPE=VALIDATOR \
+    CONSENSUS_ROLE=ACTIVE \
+    BLOCK_PRODUCTION=ENABLED \
+    STATE_STORAGE=ENABLED \
+    TRANSACTION_PROCESSING=ENABLED \
+    PUBLIC_API=DISABLED \
+    BUILD_TYPE=development \
+    QUARKUS_LOG_LEVEL=DEBUG \
+    MIN_CPU=8 \
+    MIN_MEMORY=2G \
+    AURIGRAPH_NODE_COUNT=2
+
+# Development performance settings
+ENV AURIGRAPH_THREAD_POOL_SIZE=64 \
+    AURIGRAPH_BATCH_SIZE=10000 \
+    AURIGRAPH_MEMORY_MODE=standard \
+    AURIGRAPH_DEBUG_MODE=enabled
+
+# Expose validator ports (2 nodes × 3 ports for development)
+EXPOSE 9003-9005 9004 9005
+
+# Health check with relaxed timeouts for development
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:9003/q/health/ready || exit 1
+
+# Development entrypoint with debug output
+ENTRYPOINT ["/app/multi-node-launcher.sh"]
+
+# Labels
+LABEL role="validator" \
+      type="consensus-node" \
+      build-type="development" \
+      min-cpu="8" \
+      min-memory="2GB" \
+      max-nodes="4" \
+      version="11.0.0-dev" \
+      debug-symbols="true"

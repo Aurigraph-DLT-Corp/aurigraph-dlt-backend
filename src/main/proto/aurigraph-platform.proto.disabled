@@ -1,0 +1,163 @@
+syntax = "proto3";
+
+package io.aurigraph.v11.proto;
+
+option java_package = "io.aurigraph.v11.proto";
+option java_multiple_files = true;
+
+// Core blockchain service
+service AurigraphPlatform {
+    // Transaction operations
+    rpc SubmitTransaction(TransactionRequest) returns (TransactionResponse);
+    rpc BatchSubmitTransactions(BatchTransactionRequest) returns (BatchTransactionResponse);
+    rpc GetTransaction(GetTransactionRequest) returns (Transaction);
+    
+    // Block operations
+    rpc GetBlock(GetBlockRequest) returns (Block);
+    rpc SubscribeToBlocks(BlockSubscriptionRequest) returns (stream Block);
+    
+    // Consensus operations
+    rpc GetConsensusState(ConsensusStateRequest) returns (ConsensusState);
+    
+    // Asset operations
+    rpc RegisterAsset(AssetRegistration) returns (AssetRegistrationResponse);
+    rpc GetAsset(GetAssetRequest) returns (Asset);
+}
+
+// Transaction messages
+message TransactionRequest {
+    bytes data = 1;
+    bytes signature = 2;
+    bytes public_key = 3;
+    string from_address = 4;
+    string to_address = 5;
+    string amount = 6;
+    uint64 nonce = 7;
+    string gas_price = 8;
+    string gas_limit = 9;
+}
+
+message TransactionResponse {
+    string transaction_id = 1;
+    bytes transaction_hash = 2;
+    bool success = 3;
+    string message = 4;
+    int64 timestamp = 5;
+}
+
+message BatchTransactionRequest {
+    repeated TransactionRequest transactions = 1;
+    bool atomic = 2; // All or nothing
+}
+
+message BatchTransactionResponse {
+    bool success = 1;
+    string message = 2;
+    repeated string transaction_hashes = 3;
+    int32 success_count = 4;
+    int32 failed_count = 5;
+    int32 total_processed = 6;
+}
+
+message Transaction {
+    string transaction_id = 1;
+    string transaction_hash = 2;
+    string from_address = 3;
+    string to_address = 4;
+    string amount = 5;
+    string gas_price = 6;
+    string gas_limit = 7;
+    uint64 nonce = 8;
+    int64 timestamp = 9;
+    
+    enum Status {
+        PENDING = 0;
+        CONFIRMED = 1;
+        FAILED = 2;
+    }
+    Status status = 10;
+    int64 block_number = 11;
+}
+
+message GetTransactionRequest {
+    string transaction_id = 1;
+}
+
+// Block messages
+message Block {
+    int64 block_number = 1;
+    string block_hash = 2;
+    string previous_hash = 3;
+    int64 timestamp = 4;
+    int32 transaction_count = 5;
+    repeated string transaction_hashes = 6;
+    string merkle_root = 7;
+    string validator_signature = 8;
+    map<string, string> metadata = 9;
+}
+
+message GetBlockRequest {
+    oneof block_identifier {
+        int64 block_number = 1;
+        string block_hash = 2;
+    }
+}
+
+message BlockSubscriptionRequest {
+    int64 start_from = 1; // 0 for latest
+    bool include_transactions = 2;
+}
+
+// Consensus messages
+message ConsensusState {
+    string current_leader = 1;
+    int64 current_term = 2;
+    
+    enum Phase {
+        IDLE = 0;
+        PREPARE = 1;
+        COMMIT = 2;
+        VIEW_CHANGE = 3;
+    }
+    Phase current_phase = 3;
+    
+    int32 active_validators = 4;
+    int32 total_validators = 5;
+    int64 last_committed_block = 6;
+    string consensus_type = 7;
+    map<string, string> validator_states = 8;
+}
+
+message ConsensusStateRequest {
+    bool include_validator_details = 1;
+}
+
+// Asset messages
+message Asset {
+    string asset_id = 1;
+    string name = 2;
+    string symbol = 3;
+    string owner = 4;
+    string total_supply = 5;
+    int32 decimals = 6;
+    map<string, string> attributes = 7;
+    int64 created_at = 8;
+}
+
+message AssetRegistration {
+    string name = 1;
+    string symbol = 2;
+    string initial_supply = 3;
+    int32 decimals = 4;
+    map<string, string> attributes = 5;
+}
+
+message AssetRegistrationResponse {
+    bool success = 1;
+    string asset_id = 2;
+    string message = 3;
+}
+
+message GetAssetRequest {
+    string asset_id = 1;
+}

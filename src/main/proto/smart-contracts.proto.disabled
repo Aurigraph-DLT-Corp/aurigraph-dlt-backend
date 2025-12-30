@@ -1,0 +1,449 @@
+syntax = "proto3";
+
+package io.aurigraph.v11.contracts;
+
+option java_package = "io.aurigraph.v11.contracts.proto";
+option java_outer_classname = "SmartContractsProto";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/any.proto";
+
+// Smart Contract Service Definition
+service SmartContractService {
+  // Contract lifecycle
+  rpc CreateContract(CreateContractRequest) returns (CreateContractResponse);
+  rpc ExecuteContract(ExecuteContractRequest) returns (ExecuteContractResponse);
+  rpc GetContract(GetContractRequest) returns (GetContractResponse);
+  rpc UpdateContract(UpdateContractRequest) returns (UpdateContractResponse);
+  rpc ValidateContract(ValidateContractRequest) returns (ValidateContractResponse);
+  
+  // RWA tokenization
+  rpc TokenizeAsset(TokenizeAssetRequest) returns (TokenizeAssetResponse);
+  rpc TransferToken(TransferTokenRequest) returns (TransferTokenResponse);
+  rpc GetToken(GetTokenRequest) returns (GetTokenResponse);
+  rpc BurnToken(BurnTokenRequest) returns (BurnTokenResponse);
+  
+  // Digital twin operations
+  rpc CreateDigitalTwin(CreateDigitalTwinRequest) returns (CreateDigitalTwinResponse);
+  rpc UpdateDigitalTwin(UpdateDigitalTwinRequest) returns (UpdateDigitalTwinResponse);
+  rpc GetDigitalTwin(GetDigitalTwinRequest) returns (GetDigitalTwinResponse);
+  
+  // Oracle and valuation
+  rpc GetAssetValuation(GetAssetValuationRequest) returns (GetAssetValuationResponse);
+  rpc GetMarketData(GetMarketDataRequest) returns (GetMarketDataResponse);
+  
+  // Statistics and monitoring
+  rpc GetContractStats(GetContractStatsRequest) returns (GetContractStatsResponse);
+  rpc GetTokenizerStats(GetTokenizerStatsRequest) returns (GetTokenizerStatsResponse);
+}
+
+// Contract Messages
+
+message RicardianContract {
+  string contract_id = 1;
+  string template_id = 2;
+  string legal_text = 3;
+  string executable_code = 4;
+  ContractStatus status = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+  map<string, string> parameters = 8;
+  repeated ContractParty parties = 9;
+  string creator_address = 10;
+  string asset_type = 11;
+  bytes signature = 12;
+  bool quantum_safe = 13;
+}
+
+message ContractParty {
+  string address = 1;
+  PartyRole role = 2;
+  string name = 3;
+  string legal_entity = 4;
+  google.protobuf.Timestamp joined_at = 5;
+}
+
+message ContractTrigger {
+  TriggerType type = 1;
+  map<string, string> parameters = 2;
+  google.protobuf.Timestamp triggered_at = 3;
+  string triggered_by = 4;
+}
+
+message ExecutionContext {
+  string contract_id = 1;
+  string executor_address = 2;
+  ContractTrigger trigger = 3;
+  map<string, google.protobuf.Any> runtime_data = 4;
+  google.protobuf.Timestamp execution_time = 5;
+  int64 gas_limit = 6;
+  int64 gas_used = 7;
+}
+
+message ExecutionResult {
+  bool success = 1;
+  string message = 2;
+  map<string, google.protobuf.Any> result_data = 3;
+  int64 gas_used = 4;
+  repeated ContractEvent events = 5;
+  google.protobuf.Timestamp completed_at = 6;
+  bytes transaction_hash = 7;
+}
+
+message ContractEvent {
+  string event_type = 1;
+  string description = 2;
+  map<string, google.protobuf.Any> event_data = 3;
+  google.protobuf.Timestamp timestamp = 4;
+}
+
+// RWA Token Messages
+
+message RWAToken {
+  string token_id = 1;
+  string asset_id = 2;
+  string asset_type = 3;
+  string asset_value = 4; // BigDecimal as string
+  string token_supply = 5; // BigDecimal as string
+  string owner_address = 6;
+  string digital_twin_id = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp last_transfer_at = 9;
+  google.protobuf.Timestamp last_valuation_update = 10;
+  google.protobuf.Timestamp burned_at = 11;
+  TokenStatus status = 12;
+  map<string, string> metadata = 13;
+  bool quantum_safe = 14;
+  string fraction_size = 15; // BigDecimal as string
+  int64 total_fractions = 16;
+  int64 available_fractions = 17;
+  string current_yield = 18; // BigDecimal as string
+  int32 risk_score = 19;
+  double liquidity_score = 20;
+  VerificationLevel verification_level = 21;
+  repeated string regulatory_compliance = 22;
+  repeated TokenTransfer transfer_history = 23;
+}
+
+message TokenTransfer {
+  string from_address = 1;
+  string to_address = 2;
+  string amount = 3; // BigDecimal as string
+  google.protobuf.Timestamp timestamp = 4;
+  string transaction_hash = 5;
+}
+
+message AssetDigitalTwin {
+  string twin_id = 1;
+  string asset_id = 2;
+  string asset_type = 3;
+  map<string, string> metadata = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp last_updated = 6;
+  DigitalTwinStatus status = 7;
+  repeated AssetEvent events = 8;
+  repeated SensorReading sensor_readings = 9;
+  repeated string verifications = 10;
+  string location = 11;
+  string owner_address = 12;
+}
+
+message AssetEvent {
+  string event_type = 1;
+  string description = 2;
+  map<string, string> event_data = 3;
+  google.protobuf.Timestamp timestamp = 4;
+  string recorded_by = 5;
+}
+
+message SensorReading {
+  string sensor_type = 1;
+  map<string, string> data = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  string reading_id = 4;
+}
+
+// Market Data Messages
+
+message MarketData {
+  string asset_id = 1;
+  string asset_type = 2;
+  string price = 3; // BigDecimal as string
+  string volume = 4; // BigDecimal as string
+  string volatility = 5; // BigDecimal as string
+  google.protobuf.Timestamp timestamp = 6;
+  double reliability_score = 7;
+  repeated PriceFeed price_feeds = 8;
+}
+
+message PriceFeed {
+  string asset_id = 1;
+  string price = 2; // BigDecimal as string
+  string source = 3;
+  int64 timestamp = 4;
+  double reliability_score = 5;
+}
+
+// Request/Response Messages
+
+message CreateContractRequest {
+  string template_id = 1;
+  string legal_text = 2;
+  string executable_code = 3;
+  map<string, string> parameters = 4;
+  repeated ContractParty parties = 5;
+  string creator_address = 6;
+  string asset_type = 7;
+}
+
+message CreateContractResponse {
+  bool success = 1;
+  string message = 2;
+  RicardianContract contract = 3;
+  string contract_id = 4;
+}
+
+message ExecuteContractRequest {
+  string contract_id = 1;
+  ContractTrigger trigger = 2;
+  ExecutionContext context = 3;
+}
+
+message ExecuteContractResponse {
+  bool success = 1;
+  string message = 2;
+  ExecutionResult result = 3;
+}
+
+message GetContractRequest {
+  string contract_id = 1;
+}
+
+message GetContractResponse {
+  bool success = 1;
+  string message = 2;
+  RicardianContract contract = 3;
+}
+
+message UpdateContractRequest {
+  string contract_id = 1;
+  map<string, string> parameter_updates = 2;
+  string updater_address = 3;
+}
+
+message UpdateContractResponse {
+  bool success = 1;
+  string message = 2;
+  RicardianContract updated_contract = 3;
+}
+
+message ValidateContractRequest {
+  string contract_id = 1;
+  bool validate_syntax = 2;
+  bool validate_parties = 3;
+  bool validate_signatures = 4;
+}
+
+message ValidateContractResponse {
+  bool valid = 1;
+  string message = 2;
+  repeated string validation_errors = 3;
+  repeated string validation_warnings = 4;
+}
+
+message TokenizeAssetRequest {
+  string asset_id = 1;
+  string asset_type = 2;
+  string owner_address = 3;
+  string fraction_size = 4; // BigDecimal as string
+  map<string, string> metadata = 5;
+  repeated string certifications = 6;
+  string oracle_source = 7;
+}
+
+message TokenizeAssetResponse {
+  bool success = 1;
+  string message = 2;
+  RWAToken token = 3;
+  AssetDigitalTwin digital_twin = 4;
+  int64 processing_time = 5;
+}
+
+message TransferTokenRequest {
+  string token_id = 1;
+  string from_address = 2;
+  string to_address = 3;
+  string amount = 4; // BigDecimal as string
+}
+
+message TransferTokenResponse {
+  bool success = 1;
+  string message = 2;
+  string transaction_hash = 3;
+}
+
+message GetTokenRequest {
+  string token_id = 1;
+}
+
+message GetTokenResponse {
+  bool success = 1;
+  string message = 2;
+  RWAToken token = 3;
+}
+
+message BurnTokenRequest {
+  string token_id = 1;
+  string owner_address = 2;
+}
+
+message BurnTokenResponse {
+  bool success = 1;
+  string message = 2;
+  google.protobuf.Timestamp burned_at = 3;
+}
+
+message CreateDigitalTwinRequest {
+  string asset_id = 1;
+  string asset_type = 2;
+  map<string, string> metadata = 3;
+}
+
+message CreateDigitalTwinResponse {
+  bool success = 1;
+  string message = 2;
+  AssetDigitalTwin digital_twin = 3;
+}
+
+message UpdateDigitalTwinRequest {
+  string twin_id = 1;
+  map<string, string> updates = 2;
+}
+
+message UpdateDigitalTwinResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message GetDigitalTwinRequest {
+  string twin_id = 1;
+}
+
+message GetDigitalTwinResponse {
+  bool success = 1;
+  string message = 2;
+  AssetDigitalTwin digital_twin = 3;
+}
+
+message GetAssetValuationRequest {
+  string asset_type = 1;
+  string asset_id = 2;
+  map<string, string> metadata = 3;
+}
+
+message GetAssetValuationResponse {
+  bool success = 1;
+  string message = 2;
+  string valuation = 3; // BigDecimal as string
+  string currency = 4;
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+message GetMarketDataRequest {
+  string asset_id = 1;
+  string asset_type = 2;
+}
+
+message GetMarketDataResponse {
+  bool success = 1;
+  string message = 2;
+  MarketData market_data = 3;
+}
+
+message GetContractStatsRequest {
+  // Empty - get all stats
+}
+
+message GetContractStatsResponse {
+  bool success = 1;
+  string message = 2;
+  ContractStats stats = 3;
+}
+
+message GetTokenizerStatsRequest {
+  // Empty - get all stats
+}
+
+message GetTokenizerStatsResponse {
+  bool success = 1;
+  string message = 2;
+  TokenizerStats stats = 3;
+}
+
+message ContractStats {
+  int64 total_contracts = 1;
+  int64 active_contracts = 2;
+  int64 executed_contracts = 3;
+  int64 total_executions = 4;
+  double average_execution_time = 5;
+  map<string, int64> contracts_by_type = 6;
+  int64 total_gas_used = 7;
+}
+
+message TokenizerStats {
+  int32 total_tokens = 1;
+  string total_value = 2; // BigDecimal as string
+  map<string, int64> type_distribution = 3;
+  int32 digital_twins = 4;
+  int64 total_tokens_created = 5;
+  int64 total_value_tokenized = 6;
+}
+
+// Enums
+
+enum ContractStatus {
+  CONTRACT_STATUS_PENDING = 0;
+  CONTRACT_STATUS_ACTIVE = 1;
+  CONTRACT_STATUS_EXECUTED = 2;
+  CONTRACT_STATUS_SUSPENDED = 3;
+  CONTRACT_STATUS_TERMINATED = 4;
+}
+
+enum PartyRole {
+  PARTY_ROLE_CREATOR = 0;
+  PARTY_ROLE_PARTICIPANT = 1;
+  PARTY_ROLE_BENEFICIARY = 2;
+  PARTY_ROLE_VALIDATOR = 3;
+  PARTY_ROLE_OBSERVER = 4;
+}
+
+enum TriggerType {
+  TRIGGER_TYPE_MANUAL = 0;
+  TRIGGER_TYPE_TIME_BASED = 1;
+  TRIGGER_TYPE_EVENT_BASED = 2;
+  TRIGGER_TYPE_CONDITION_BASED = 3;
+  TRIGGER_TYPE_ORACLE_BASED = 4;
+}
+
+enum TokenStatus {
+  TOKEN_STATUS_PENDING = 0;
+  TOKEN_STATUS_ACTIVE = 1;
+  TOKEN_STATUS_SUSPENDED = 2;
+  TOKEN_STATUS_BURNED = 3;
+}
+
+enum VerificationLevel {
+  VERIFICATION_LEVEL_NONE = 0;
+  VERIFICATION_LEVEL_BASIC = 1;
+  VERIFICATION_LEVEL_ENHANCED = 2;
+  VERIFICATION_LEVEL_CERTIFIED = 3;
+  VERIFICATION_LEVEL_AUDITED = 4;
+}
+
+enum DigitalTwinStatus {
+  DIGITAL_TWIN_STATUS_PENDING = 0;
+  DIGITAL_TWIN_STATUS_ACTIVE = 1;
+  DIGITAL_TWIN_STATUS_SUSPENDED = 2;
+  DIGITAL_TWIN_STATUS_ARCHIVED = 3;
+  DIGITAL_TWIN_STATUS_ERROR = 4;
+}

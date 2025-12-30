@@ -1,0 +1,118 @@
+package io.aurigraph.grpc.service;
+
+import com.google.protobuf.Timestamp;
+import io.aurigraph.v11.analytics.RealTimeAnalyticsService;
+import io.aurigraph.v11.proto.AnalyticsStreamService;
+import io.aurigraph.v11.proto.DashboardAnalytics;
+import io.aurigraph.v11.proto.DashboardAnalyticsRequest;
+import io.aurigraph.v11.proto.DashboardCommand;
+import io.aurigraph.v11.proto.HistoricalAnalyticsResponse;
+import io.aurigraph.v11.proto.HistoricalQuery;
+import io.aurigraph.v11.proto.NetworkHealth;
+import io.aurigraph.v11.proto.PerformanceMetrics;
+import io.aurigraph.v11.proto.RealTimeDataPoint;
+import io.aurigraph.v11.proto.ResourceUtilization;
+import io.aurigraph.v11.proto.SubscribeRequest;
+import io.aurigraph.v11.proto.SystemMetrics;
+import io.aurigraph.v11.proto.TPSUpdate;
+import io.aurigraph.v11.proto.TransactionStats;
+import io.quarkus.grpc.GrpcService;
+import io.smallrye.mutiny.Multi;
+import io.smallrye.mutiny.Uni;
+import jakarta.inject.Inject;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@GrpcService
+public class AnalyticsStreamServiceImpl implements AnalyticsStreamService {
+
+    @Inject
+    RealTimeAnalyticsService realTimeAnalyticsService;
+
+    @Override
+    public Uni<DashboardAnalytics> getDashboardAnalytics(DashboardAnalyticsRequest request) {
+        RealTimeAnalyticsService.RealTimeMetrics metrics = realTimeAnalyticsService.getCurrentSnapshot();
+        return Uni.createFrom().item(mapToDashboardAnalytics(metrics, request.getDashboardId()));
+    }
+
+    @Override
+    public Multi<DashboardAnalytics> streamDashboardAnalytics(SubscribeRequest request) {
+        return realTimeAnalyticsService.streamMetrics()
+                .map(metrics -> mapToDashboardAnalytics(metrics, "stream"));
+    }
+
+    @Override
+    public Multi<RealTimeDataPoint> streamRealTimeData(SubscribeRequest request) {
+        return realTimeAnalyticsService.streamMetrics()
+                .map(this::mapToRealTimeDataPoint);
+    }
+
+    @Override
+    public Multi<DashboardAnalytics> interactiveDashboard(Multi<DashboardCommand> request) {
+        // Simple implementation: ignore commands for now and just stream analytics
+        // In a real implementation, we would use the commands to filter/modify the stream
+        return request.onItem().transformToMulti(command ->
+            realTimeAnalyticsService.streamMetrics()
+                .map(metrics -> mapToDashboardAnalytics(metrics, "interactive"))
+        );
+    }
+
+    @Override
+    public Uni<HistoricalAnalyticsResponse> queryHistoricalAnalytics(HistoricalQuery request) {
+        long start = request.getStartTime().getSeconds();
+        long end = request.getEndTime().getSeconds();
+
+        List<RealTimeAnalyticsService.RealTimeMetrics> history =
+            realTimeAnalyticsService.getHistoricalMetrics(start, end);
+
+        List<DashboardAnalytics> dataPoints = history.stream()
+                .map(m -> mapToDashboardAnalytics(m, "history"))
+                .collect(Collectors.toList());
+
+        return Uni.createFrom().item(HistoricalAnalyticsResponse.newBuilder()
+                .addAllDataPoints(dataPoints)
+                .setTotalPoints(dataPoints.size())
+                .setQueryExecutedAt(toTimestamp(Instant.now()))
+                .build());
+    }
+
+    private DashboardAnalytics mapToDashboardAnalytics(RealTimeAnalyticsService.RealTimeMetrics metrics, String dashboardId) {
+        return DashboardAnalytics.newBuilder()
+                .setDashboardId(dashboardId)
+                .setTimestamp(toTimestamp(metrics.timestamp))
+                .setPerformance(PerformanceMetrics.newBuilder()
+                        .setCurrentTps((long) metrics.currentTPS)
+                        .build())
+                .setNetworkHealth(NetworkHealth.newBuilder()
+                        .setActiveValidators(metrics.activeValidators)
+                        .build())
+                .setTransactionStats(TransactionStats.newBuilder()
+                        .setPendingCount(metrics.pendingTransactions)
+                        .build())
+                .setResources(ResourceUtilization.newBuilder()
+                        .setSystem(SystemMetrics.newBuilder()
+                                .setCpuUsage(metrics.resources.cpuUsage)
+                                .setMemoryUsage(metrics.resources.memoryUsage)
+                                .build())
+                        .build())
+                .build();
+    }
+
+    private RealTimeDataPoint mapToRealTimeDataPoint(RealTimeAnalyticsService.RealTimeMetrics metrics) {
+        return RealTimeDataPoint.newBuilder()
+                .setTimestamp(toTimestamp(metrics.timestamp))
+                .setTpsUpdate(TPSUpdate.newBuilder()
+                        .setCurrentTps((long) metrics.currentTPS)
+                        .build())
+                .build();
+    }
+
+    private Timestamp toTimestamp(Instant instant) {
+        return Timestamp.newBuilder()
+                .setSeconds(instant.getEpochSecond())
+                .setNanos(instant.getNano())
+                .build();
+    }
+}

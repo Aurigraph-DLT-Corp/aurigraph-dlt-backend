@@ -1,0 +1,1182 @@
+openapi: 3.0.3
+info:
+  title: Aurigraph V11 Platform API
+  description: |
+    High-performance blockchain platform APIs for 2M+ TPS
+    
+    ## Overview
+    Aurigraph V11 is a next-generation blockchain platform built with Java 21, Quarkus, and GraalVM.
+    It provides high-throughput transaction processing, quantum-resistant cryptography, cross-chain bridging,
+    and AI-driven optimization capabilities.
+    
+    ## Features
+    - **Ultra-High Throughput**: 2M+ transactions per second
+    - **Quantum-Resistant Security**: Post-quantum cryptography implementation
+    - **Cross-Chain Bridge**: Interoperability with Ethereum, Solana, and other chains
+    - **AI Optimization**: Machine learning-driven consensus and performance optimization
+    - **HMS Integration**: Healthcare Management System integration
+    - **Real-time Monitoring**: Comprehensive performance and health monitoring
+    
+    ## Performance Targets
+    - **TPS**: 2,000,000+ transactions per second
+    - **Latency**: Sub-millisecond transaction processing
+    - **Startup**: <1 second native binary startup
+    - **Memory**: <256MB native binary footprint
+    
+    ## Technology Stack
+    - **Runtime**: Java 21 with Virtual Threads
+    - **Framework**: Quarkus 3.26.2
+    - **Native**: GraalVM native compilation
+    - **Transport**: HTTP/2 with TLS 1.3, gRPC
+    - **Consensus**: HyperRAFT++ algorithm
+    - **Cryptography**: CRYSTALS-Kyber/Dilithium post-quantum algorithms
+    
+  version: 11.0.0
+  contact:
+    name: Aurigraph DLT Corporation
+    url: https://aurigraph.io
+    email: api-support@aurigraph.io
+  license:
+    name: Proprietary
+    url: https://aurigraph.io/license
+  
+servers:
+  - url: http://localhost:9003
+    description: Development server
+  - url: https://api.aurigraph.io
+    description: Production server
+  - url: https://staging-api.aurigraph.io
+    description: Staging server
+
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
+
+paths:
+  # ==================== PLATFORM STATUS APIs ====================
+  /api/v11/status:
+    get:
+      tags:
+        - Platform Status
+      summary: Get platform status
+      description: Returns comprehensive platform health and status information
+      operationId: getPlatformStatus
+      responses:
+        '200':
+          description: Platform status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformStatus'
+              examples:
+                healthy:
+                  summary: Healthy platform status
+                  value:
+                    status: "HEALTHY"
+                    version: "11.0.0"
+                    uptimeSeconds: 3661
+                    totalRequests: 1234567
+                    platform: "Java 21 + Quarkus + GraalVM Native"
+                    targetTPS: 2000000
+                    timestamp: 1706275200000
+        '503':
+          description: Platform is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v11/info:
+    get:
+      tags:
+        - Platform Status
+      summary: Get system information
+      description: Returns detailed system and runtime information
+      operationId: getSystemInfo
+      security: []
+      responses:
+        '200':
+          description: System information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemInfo'
+
+  /api/v11/health:
+    get:
+      tags:
+        - Platform Status
+      summary: Health check endpoint
+      description: Quick health check for load balancers
+      operationId: healthCheck
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "UP"
+                  timestamp:
+                    type: integer
+                    format: int64
+                  version:
+                    type: string
+
+  # ==================== TRANSACTION APIs ====================
+  /api/v11/transactions:
+    post:
+      tags:
+        - Transactions
+      summary: Process a transaction
+      description: Submit a transaction for processing
+      operationId: processTransaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionRequest'
+            examples:
+              simple_transfer:
+                summary: Simple transfer transaction
+                value:
+                  transactionId: "tx_001_2025"
+                  amount: 1000.50
+      responses:
+        '201':
+          description: Transaction processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          description: Invalid transaction data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service temporarily unavailable
+
+  /api/v11/transactions/batch:
+    post:
+      tags:
+        - Transactions
+      summary: Process batch transactions
+      description: Submit multiple transactions for batch processing
+      operationId: processBatchTransactions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchTransactionRequest'
+      responses:
+        '200':
+          description: Batch processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchTransactionResponse'
+        '400':
+          description: Invalid batch data
+
+  /api/v11/transactions/stats:
+    get:
+      tags:
+        - Transactions
+      summary: Get transaction statistics
+      description: Returns current transaction processing statistics
+      operationId: getTransactionStats
+      responses:
+        '200':
+          description: Statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionStats'
+
+  # ==================== PERFORMANCE APIs ====================
+  /api/v11/performance/test:
+    post:
+      tags:
+        - Performance
+      summary: Run performance test
+      description: Execute high-throughput performance test
+      operationId: runPerformanceTest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerformanceTestRequest'
+      responses:
+        '200':
+          description: Performance test completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerformanceTestResult'
+        '400':
+          description: Invalid test parameters
+
+  /api/v11/performance/metrics:
+    get:
+      tags:
+        - Performance
+      summary: Get performance metrics
+      description: Returns real-time performance metrics
+      operationId: getPerformanceMetrics
+      responses:
+        '200':
+          description: Metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerformanceMetrics'
+
+  /api/v11/performance/ultra-throughput:
+    post:
+      tags:
+        - Performance
+      summary: Run ultra-high throughput test
+      description: Execute ultra-high throughput test targeting 3M+ TPS
+      operationId: runUltraHighThroughputTest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                iterations:
+                  type: integer
+                  minimum: 1000
+                  maximum: 1000000
+                  description: Number of transactions to process
+              required:
+                - iterations
+      responses:
+        '200':
+          description: Ultra-high throughput test completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UltraHighThroughputStats'
+
+  # ==================== CONSENSUS APIs ====================
+  /api/v11/consensus/status:
+    get:
+      tags:
+        - Consensus
+      summary: Get consensus status
+      description: Returns HyperRAFT++ consensus algorithm status
+      operationId: getConsensusStatus
+      responses:
+        '200':
+          description: Consensus status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsensusStatus'
+
+  /api/v11/consensus/propose:
+    post:
+      tags:
+        - Consensus
+      summary: Propose consensus entry
+      description: Submit a proposal to the consensus algorithm
+      operationId: proposeConsensusEntry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsensusProposal'
+      responses:
+        '200':
+          description: Proposal submitted successfully
+
+  # ==================== SECURITY APIs ====================
+  /api/v11/crypto/status:
+    get:
+      tags:
+        - Security
+      summary: Get quantum cryptography status
+      description: Returns post-quantum cryptography system status
+      operationId: getCryptoStatus
+      responses:
+        '200':
+          description: Crypto status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CryptoStatus'
+
+  /api/v11/crypto/sign:
+    post:
+      tags:
+        - Security
+      summary: Sign data with quantum-resistant cryptography
+      description: Sign data using post-quantum digital signatures
+      operationId: signData
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SigningRequest'
+      responses:
+        '200':
+          description: Data signed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SigningResponse'
+
+  # ==================== BRIDGE APIs ====================
+  /api/v11/bridge/stats:
+    get:
+      tags:
+        - Cross-Chain Bridge
+      summary: Get cross-chain bridge statistics
+      description: Returns cross-chain bridge performance statistics
+      operationId: getBridgeStats
+      responses:
+        '200':
+          description: Bridge stats retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BridgeStats'
+
+  /api/v11/bridge/transfer:
+    post:
+      tags:
+        - Cross-Chain Bridge
+      summary: Initiate cross-chain transfer
+      description: Start a cross-chain asset transfer
+      operationId: initiateCrossChainTransfer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrossChainTransferRequest'
+      responses:
+        '200':
+          description: Transfer initiated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrossChainTransferResponse'
+
+  # ==================== HMS APIs ====================
+  /api/v11/hms/stats:
+    get:
+      tags:
+        - HMS Integration
+      summary: Get HMS integration statistics
+      description: Returns Healthcare Management System integration statistics
+      operationId: getHMSStats
+      responses:
+        '200':
+          description: HMS stats retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HMSStats'
+
+  # ==================== AI OPTIMIZATION APIs ====================
+  /api/v11/ai/stats:
+    get:
+      tags:
+        - AI Optimization
+      summary: Get AI optimization statistics
+      description: Returns AI/ML optimization system statistics
+      operationId: getAIStats
+      responses:
+        '200':
+          description: AI stats retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIOptimizationStats'
+
+  /api/v11/ai/optimize:
+    post:
+      tags:
+        - AI Optimization
+      summary: Trigger AI optimization
+      description: Manually trigger AI-based system optimization
+      operationId: triggerAIOptimization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AIOptimizationRequest'
+      responses:
+        '200':
+          description: Optimization triggered successfully
+
+  # ==================== GATEWAY APIs ====================
+  /gateway/status:
+    get:
+      tags:
+        - API Gateway
+      summary: Get gateway status
+      description: Returns API gateway status and configuration
+      operationId: getGatewayStatus
+      responses:
+        '200':
+          description: Gateway status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayStatus'
+
+  /gateway/metrics:
+    get:
+      tags:
+        - API Gateway
+      summary: Get gateway metrics
+      description: Returns API gateway performance metrics
+      operationId: getGatewayMetrics
+      responses:
+        '200':
+          description: Gateway metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GatewayMetrics'
+
+  /gateway/rate-limit/configure:
+    post:
+      tags:
+        - API Gateway
+      summary: Configure rate limiting
+      description: Configure rate limiting for a specific client
+      operationId: configureRateLimit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RateLimitConfiguration'
+      responses:
+        '200':
+          description: Rate limit configured successfully
+
+  /gateway/auth/token:
+    post:
+      tags:
+        - API Gateway
+      summary: Generate authentication token
+      description: Generate an authentication token for API access
+      operationId: generateToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+      responses:
+        '200':
+          description: Token generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: Invalid credentials
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token authentication
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key authentication
+
+  schemas:
+    # Platform Status Schemas
+    PlatformStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [HEALTHY, WARNING, CRITICAL, MAINTENANCE]
+          description: Overall platform health status
+        version:
+          type: string
+          description: Platform version
+        uptimeSeconds:
+          type: integer
+          format: int64
+          description: Platform uptime in seconds
+        totalRequests:
+          type: integer
+          format: int64
+          description: Total number of requests processed
+        platform:
+          type: string
+          description: Platform technology stack
+        targetTPS:
+          type: integer
+          format: int64
+          description: Target transactions per second
+        timestamp:
+          type: integer
+          format: int64
+          description: Timestamp of status check
+      required:
+        - status
+        - version
+        - uptimeSeconds
+        - totalRequests
+        - platform
+        - targetTPS
+        - timestamp
+
+    SystemInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          description: System name
+        version:
+          type: string
+          description: Version number
+        javaVersion:
+          type: string
+          description: Java runtime version
+        framework:
+          type: string
+          description: Framework information
+        osName:
+          type: string
+          description: Operating system name
+        osArch:
+          type: string
+          description: Operating system architecture
+        availableProcessors:
+          type: integer
+          description: Number of available CPU cores
+        maxMemoryMB:
+          type: integer
+          format: int64
+          description: Maximum memory in megabytes
+        timestamp:
+          type: integer
+          format: int64
+
+    # Transaction Schemas
+    TransactionRequest:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          description: Unique transaction identifier
+          pattern: '^[a-zA-Z0-9_-]+$'
+          minLength: 1
+          maxLength: 256
+        amount:
+          type: number
+          format: double
+          description: Transaction amount
+          minimum: 0
+          maximum: 999999999999.99
+      required:
+        - transactionId
+        - amount
+      example:
+        transactionId: "tx_2025_001"
+        amount: 1000.50
+
+    TransactionResponse:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          description: Transaction identifier
+        status:
+          type: string
+          enum: [PROCESSED, PENDING, FAILED]
+          description: Transaction processing status
+        amount:
+          type: number
+          format: double
+          description: Transaction amount
+        timestamp:
+          type: integer
+          format: int64
+          description: Processing timestamp
+        message:
+          type: string
+          description: Status message
+      required:
+        - transactionId
+        - status
+        - amount
+        - timestamp
+
+    BatchTransactionRequest:
+      type: object
+      properties:
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionRequest'
+          minItems: 1
+          maxItems: 10000
+          description: Array of transactions to process
+      required:
+        - transactions
+
+    BatchTransactionResponse:
+      type: object
+      properties:
+        requestedCount:
+          type: integer
+          description: Number of transactions requested
+        processedCount:
+          type: integer
+          description: Number of transactions successfully processed
+        durationMs:
+          type: number
+          format: double
+          description: Processing duration in milliseconds
+        transactionsPerSecond:
+          type: number
+          format: double
+          description: Achieved transactions per second
+        status:
+          type: string
+          description: Batch processing status
+        timestamp:
+          type: integer
+          format: int64
+
+    TransactionStats:
+      type: object
+      properties:
+        totalProcessed:
+          type: integer
+          format: int64
+          description: Total transactions processed
+        currentThroughputMeasurement:
+          type: number
+          format: double
+          description: Current throughput measurement
+        throughputEfficiency:
+          type: number
+          format: double
+          description: Throughput efficiency (0.0 - 1.0)
+        adaptiveBatchSizeMultiplier:
+          type: number
+          format: double
+          description: Current batch size multiplier
+        timestamp:
+          type: integer
+          format: int64
+
+    # Performance Schemas
+    PerformanceTestRequest:
+      type: object
+      properties:
+        iterations:
+          type: integer
+          minimum: 1000
+          maximum: 1000000
+          description: Number of test iterations
+        threadCount:
+          type: integer
+          minimum: 1
+          maximum: 256
+          description: Number of threads to use
+      required:
+        - iterations
+        - threadCount
+
+    PerformanceTestResult:
+      type: object
+      properties:
+        iterations:
+          type: integer
+          description: Number of iterations performed
+        threadCount:
+          type: integer
+          description: Number of threads used
+        durationMs:
+          type: number
+          format: double
+          description: Test duration in milliseconds
+        transactionsPerSecond:
+          type: number
+          format: double
+          description: Achieved transactions per second
+        performanceGrade:
+          type: string
+          description: Performance grade assessment
+        targetAchieved:
+          type: boolean
+          description: Whether target TPS was achieved
+        targetTPS:
+          type: integer
+          format: int64
+          description: Target TPS for comparison
+        timestamp:
+          type: integer
+          format: int64
+
+    PerformanceMetrics:
+      type: object
+      properties:
+        currentTPS:
+          type: number
+          format: double
+          description: Current transactions per second
+        totalTransactions:
+          type: integer
+          format: int64
+          description: Total transactions processed
+        throughputEfficiency:
+          type: number
+          format: double
+          description: Throughput efficiency ratio
+        usedMemoryBytes:
+          type: integer
+          format: int64
+          description: Used memory in bytes
+        maxMemoryBytes:
+          type: integer
+          format: int64
+          description: Maximum memory in bytes
+        activeThreads:
+          type: integer
+          description: Number of active threads
+        uptimeMs:
+          type: integer
+          format: int64
+          description: Uptime in milliseconds
+        timestamp:
+          type: integer
+          format: int64
+
+    UltraHighThroughputStats:
+      type: object
+      properties:
+        iterations:
+          type: integer
+        durationMs:
+          type: number
+          format: double
+        transactionsPerSecond:
+          type: number
+          format: double
+        nsPerTransaction:
+          type: number
+          format: double
+        performanceGrade:
+          type: string
+        ultraHighTarget:
+          type: boolean
+          description: 3M+ TPS achieved
+        highTarget:
+          type: boolean
+          description: 2M+ TPS achieved
+        baseTarget:
+          type: boolean
+          description: 1M+ TPS achieved
+        optimizations:
+          type: string
+        processedTransactions:
+          type: integer
+        currentSystemThroughput:
+          type: number
+          format: double
+        adaptiveBatchMultiplier:
+          type: number
+          format: double
+        throughputEfficiency:
+          type: number
+          format: double
+        timestamp:
+          type: integer
+          format: int64
+
+    # Consensus Schemas
+    ConsensusStatus:
+      type: object
+      properties:
+        algorithm:
+          type: string
+          description: Consensus algorithm name
+        status:
+          type: string
+          enum: [ACTIVE, SYNCING, OFFLINE]
+        currentLeader:
+          type: string
+          description: Current consensus leader
+        lastHeartbeat:
+          type: integer
+          format: int64
+        nodeCount:
+          type: integer
+        timestamp:
+          type: integer
+          format: int64
+
+    ConsensusProposal:
+      type: object
+      properties:
+        proposalId:
+          type: string
+          description: Unique proposal identifier
+        data:
+          type: string
+          description: Proposal data
+      required:
+        - proposalId
+        - data
+
+    # Security Schemas
+    CryptoStatus:
+      type: object
+      properties:
+        algorithm:
+          type: string
+          description: Cryptographic algorithm in use
+        status:
+          type: string
+          enum: [ACTIVE, INITIALIZING, ERROR]
+        operationsPerSecond:
+          type: number
+          format: double
+        quantumResistant:
+          type: boolean
+        timestamp:
+          type: integer
+          format: int64
+
+    SigningRequest:
+      type: object
+      properties:
+        data:
+          type: string
+          description: Data to be signed
+        algorithm:
+          type: string
+          description: Signing algorithm preference
+          enum: [CRYSTALS-Dilithium, SPHINCS+, DEFAULT]
+      required:
+        - data
+
+    SigningResponse:
+      type: object
+      properties:
+        signature:
+          type: string
+          description: Generated signature
+        algorithm:
+          type: string
+          description: Algorithm used for signing
+        publicKey:
+          type: string
+          description: Public key for verification
+        timestamp:
+          type: integer
+          format: int64
+
+    # Bridge Schemas
+    BridgeStats:
+      type: object
+      properties:
+        totalTransfers:
+          type: integer
+          format: int64
+        activeTransfers:
+          type: integer
+        successfulTransfers:
+          type: integer
+          format: int64
+        failedTransfers:
+          type: integer
+          format: int64
+        supportedChains:
+          type: array
+          items:
+            type: string
+        timestamp:
+          type: integer
+          format: int64
+
+    CrossChainTransferRequest:
+      type: object
+      properties:
+        sourceChain:
+          type: string
+          description: Source blockchain
+        targetChain:
+          type: string
+          description: Target blockchain
+        asset:
+          type: string
+          description: Asset to transfer
+        amount:
+          type: number
+          format: double
+          description: Amount to transfer
+        recipient:
+          type: string
+          description: Recipient address
+      required:
+        - sourceChain
+        - targetChain
+        - asset
+        - amount
+        - recipient
+
+    CrossChainTransferResponse:
+      type: object
+      properties:
+        transferId:
+          type: string
+        status:
+          type: string
+        sourceChain:
+          type: string
+        targetChain:
+          type: string
+        estimatedCompletionTime:
+          type: integer
+          format: int64
+        timestamp:
+          type: integer
+          format: int64
+
+    # HMS Schemas
+    HMSStats:
+      type: object
+      properties:
+        totalIntegrations:
+          type: integer
+          format: int64
+        activeConnections:
+          type: integer
+        dataExchanges:
+          type: integer
+          format: int64
+        healthRecordsProcessed:
+          type: integer
+          format: int64
+        complianceStatus:
+          type: string
+        timestamp:
+          type: integer
+          format: int64
+
+    # AI Optimization Schemas
+    AIOptimizationStats:
+      type: object
+      properties:
+        optimizationsApplied:
+          type: integer
+          format: int64
+        currentEfficiency:
+          type: number
+          format: double
+        predictionAccuracy:
+          type: number
+          format: double
+        modelVersion:
+          type: string
+        status:
+          type: string
+        timestamp:
+          type: integer
+          format: int64
+
+    AIOptimizationRequest:
+      type: object
+      properties:
+        optimizationType:
+          type: string
+          enum: [CONSENSUS, THROUGHPUT, MEMORY, NETWORK]
+        parameters:
+          type: object
+          additionalProperties: true
+      required:
+        - optimizationType
+
+    # Gateway Schemas
+    GatewayStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ACTIVE, MAINTENANCE, ERROR]
+        version:
+          type: string
+        totalRequests:
+          type: integer
+          format: int64
+        successfulRequests:
+          type: integer
+          format: int64
+        rateLimitedRequests:
+          type: integer
+          format: int64
+        authenticationFailures:
+          type: integer
+          format: int64
+        defaultRateLimit:
+          type: integer
+        rateLimitWindowSeconds:
+          type: integer
+        authenticationEnabled:
+          type: boolean
+        timestamp:
+          type: integer
+          format: int64
+
+    GatewayMetrics:
+      type: object
+      properties:
+        totalRequests:
+          type: integer
+          format: int64
+        successfulRequests:
+          type: integer
+          format: int64
+        rateLimitedRequests:
+          type: integer
+          format: int64
+        authenticationFailures:
+          type: integer
+          format: int64
+        averageResponseTimeMs:
+          type: number
+          format: double
+        currentThroughput:
+          type: number
+          format: double
+        activeClients:
+          type: integer
+        timestamp:
+          type: integer
+          format: int64
+
+    RateLimitConfiguration:
+      type: object
+      properties:
+        clientId:
+          type: string
+          description: Client identifier
+        requestsPerMinute:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+          description: Requests allowed per minute
+        burstLimit:
+          type: integer
+          minimum: 1
+          maximum: 10000
+          description: Burst request limit
+      required:
+        - clientId
+        - requestsPerMinute
+        - burstLimit
+
+    TokenRequest:
+      type: object
+      properties:
+        clientId:
+          type: string
+          description: Client identifier
+        clientSecret:
+          type: string
+          description: Client secret
+        scopes:
+          type: array
+          items:
+            type: string
+          description: Requested scopes
+      required:
+        - clientId
+        - clientSecret
+        - scopes
+
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: Access token
+        token_type:
+          type: string
+          description: Token type (Bearer)
+        expires_in:
+          type: integer
+          description: Token expiration in seconds
+        expires_at:
+          type: integer
+          format: int64
+          description: Token expiration timestamp
+        scope:
+          type: array
+          items:
+            type: string
+          description: Granted scopes
+
+    # Common Schemas
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+        timestamp:
+          type: integer
+          format: int64
+        details:
+          type: object
+          additionalProperties: true
+      required:
+        - error
+        - timestamp
+
+tags:
+  - name: Platform Status
+    description: Platform health and status monitoring APIs
+  - name: Transactions
+    description: Transaction processing and management APIs
+  - name: Performance
+    description: Performance testing and metrics APIs
+  - name: Consensus
+    description: HyperRAFT++ consensus algorithm APIs
+  - name: Security
+    description: Quantum-resistant cryptography APIs
+  - name: Cross-Chain Bridge
+    description: Cross-chain interoperability APIs
+  - name: HMS Integration
+    description: Healthcare Management System integration APIs
+  - name: AI Optimization
+    description: AI/ML optimization system APIs
+  - name: API Gateway
+    description: API gateway management and configuration APIs

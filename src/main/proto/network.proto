@@ -1,0 +1,323 @@
+syntax = "proto3";
+
+package io.aurigraph.v11.proto;
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+
+option java_multiple_files = true;
+option java_package = "io.aurigraph.v11.proto";
+option java_outer_classname = "NetworkProto";
+
+/**
+ * Network Protocol Buffer Definitions
+ *
+ * This proto file defines all message types for NetworkServiceImpl gRPC service.
+ * Supports 4 RPC methods for peer management and network communication:
+ * - GetNetworkStatus() - Get overall network health and peer count
+ * - GetPeerList() - List all connected peers with metadata
+ * - BroadcastMessage() - Broadcast message to network
+ * - SubscribeNetworkEvents() - Server streaming for real-time events
+ *
+ * Performance Targets:
+ * - GetNetworkStatus: <5ms latency
+ * - GetPeerList: <10ms latency
+ * - BroadcastMessage: <50ms peer-to-peer propagation
+ * - SubscribeNetworkEvents: 100+ concurrent subscribers
+ */
+
+// ============================================================================
+// Network Status Messages
+// ============================================================================
+
+/**
+ * GetNetworkStatusRequest initiates network status query
+ * Empty request to retrieve current network state
+ */
+message GetNetworkStatusRequest {
+  // No parameters needed - returns current state
+  bool include_peer_details = 1;    // Include detailed peer metrics
+  bool include_topology = 2;         // Include network topology graph
+}
+
+/**
+ * NetworkStatus contains overall network health metrics
+ * Provides snapshot of network performance and connectivity
+ */
+message NetworkStatus {
+  // Network health
+  HealthStatus network_health = 1;   // Overall network health status
+  int32 peer_count = 2;              // Total number of connected peers
+  int32 active_connections = 3;      // Number of active connections
+  int32 sync_progress_percent = 4;   // Blockchain sync progress (0-100)
+
+  // Performance metrics
+  int64 total_messages_sent = 5;     // Total messages sent since startup
+  int64 total_messages_received = 6; // Total messages received
+  double average_latency_ms = 7;     // Average network latency
+  double network_bandwidth_mbps = 8; // Current network bandwidth usage
+
+  // Timestamp
+  google.protobuf.Timestamp timestamp = 9;
+
+  // Optional detailed metrics
+  repeated PeerInfo top_peers = 10;  // Top performing peers (if requested)
+  NetworkTopology topology = 11;     // Network topology (if requested)
+}
+
+/**
+ * NetworkTopology describes the peer-to-peer network graph
+ * Used for visualization and network analysis
+ */
+message NetworkTopology {
+  int32 total_nodes = 1;             // Total nodes in network
+  int32 total_edges = 2;             // Total connections
+  int32 network_diameter = 3;        // Maximum distance between any two nodes
+  double clustering_coefficient = 4; // Network clustering metric
+  repeated string hub_nodes = 5;     // Highly connected nodes (peer_ids)
+}
+
+// ============================================================================
+// Peer Management Messages
+// ============================================================================
+
+/**
+ * GetPeerListRequest initiates peer list query
+ * Can filter and paginate peer results
+ */
+message GetPeerListRequest {
+  // Filtering
+  PeerConnectionStatus filter_status = 1;  // Filter by connection status
+  string filter_node_type = 2;             // Filter by node type (validator, business, slim)
+
+  // Pagination
+  int32 limit = 3;                         // Maximum peers to return (default: 100)
+  int32 offset = 4;                        // Offset for pagination (default: 0)
+
+  // Sorting
+  string sort_by = 5;                      // Sort field: latency, last_seen, uptime
+  bool sort_descending = 6;                // Sort order (default: ascending)
+}
+
+/**
+ * PeerListResponse returns list of connected peers
+ * Includes pagination metadata
+ */
+message PeerListResponse {
+  repeated PeerInfo peers = 1;             // List of peer information
+  int32 total_count = 2;                   // Total peers matching filter
+  int32 returned_count = 3;                // Number of peers in this response
+  google.protobuf.Timestamp timestamp = 4;
+}
+
+/**
+ * PeerInfo contains detailed information about a single peer
+ * Used for peer discovery and network monitoring
+ */
+message PeerInfo {
+  // Peer identification
+  string peer_id = 1;                      // Unique peer identifier
+  string ip_address = 2;                   // Peer IP address
+  int32 port = 3;                          // Peer port number
+  string node_type = 4;                    // Node type: VALIDATOR, BUSINESS, SLIM
+
+  // Connection status
+  PeerConnectionStatus connection_status = 5;
+  google.protobuf.Timestamp last_seen = 6; // Last successful communication
+  google.protobuf.Timestamp connected_since = 7; // Connection established time
+
+  // Performance metrics
+  double latency_ms = 8;                   // Average round-trip latency
+  int64 messages_sent = 9;                 // Messages sent to this peer
+  int64 messages_received = 10;            // Messages received from peer
+  double uptime_percent = 11;              // Peer uptime percentage
+
+  // Network metadata
+  string protocol_version = 12;            // Protocol version
+  repeated string capabilities = 13;       // Supported capabilities
+  int64 block_height = 14;                 // Peer's latest block height
+}
+
+/**
+ * PeerConnectionStatus describes peer connection state
+ */
+enum PeerConnectionStatus {
+  PEER_STATUS_UNKNOWN = 0;
+  PEER_CONNECTED = 1;                      // Actively connected
+  PEER_CONNECTING = 2;                     // Connection in progress
+  PEER_DISCONNECTED = 3;                   // Previously connected, now offline
+  PEER_BANNED = 4;                         // Banned for malicious behavior
+  PEER_UNREACHABLE = 5;                    // Cannot establish connection
+}
+
+// ============================================================================
+// Message Broadcasting
+// ============================================================================
+
+/**
+ * BroadcastMessageRequest initiates network-wide message broadcast
+ * Supports priority levels and target filtering
+ */
+message BroadcastMessageRequest {
+  // Message content
+  string message_type = 1;                 // Message type identifier
+  bytes message_payload = 2;               // Serialized message payload
+  string message_id = 3;                   // Unique message identifier
+
+  // Broadcast options
+  MessagePriority priority = 4;            // Broadcast priority level
+  repeated string target_peer_ids = 5;     // Target specific peers (empty = all)
+  string target_node_type = 6;             // Target node type filter
+  int32 timeout_seconds = 7;               // Broadcast timeout (default: 30)
+
+  // Delivery options
+  bool require_acknowledgment = 8;         // Require peer acknowledgments
+  int32 min_acknowledgments = 9;           // Minimum required acknowledgments
+}
+
+/**
+ * BroadcastMessageResponse returns broadcast result
+ * Includes delivery statistics
+ */
+message BroadcastMessageResponse {
+  string message_id = 1;                   // Original message ID
+  bool success = 2;                        // Overall broadcast success
+  int32 peers_reached = 3;                 // Number of peers reached
+  int32 acknowledgments_received = 4;      // Number of acknowledgments
+  google.protobuf.Timestamp timestamp = 5;
+
+  // Delivery details
+  repeated PeerDeliveryStatus delivery_status = 6;
+  string error_message = 7;                // Error if broadcast failed
+}
+
+/**
+ * PeerDeliveryStatus tracks message delivery to individual peer
+ */
+message PeerDeliveryStatus {
+  string peer_id = 1;                      // Target peer ID
+  bool delivered = 2;                      // Delivery success
+  bool acknowledged = 3;                   // Acknowledgment received
+  double delivery_time_ms = 4;             // Time to deliver
+  string error_message = 5;                // Error if delivery failed
+}
+
+/**
+ * MessagePriority defines broadcast priority levels
+ */
+enum MessagePriority {
+  PRIORITY_NORMAL = 0;                     // Standard priority
+  PRIORITY_HIGH = 1;                       // High priority (consensus messages)
+  PRIORITY_URGENT = 2;                     // Urgent priority (security alerts)
+  PRIORITY_LOW = 3;                        // Low priority (housekeeping)
+}
+
+// ============================================================================
+// Network Event Streaming
+// ============================================================================
+
+/**
+ * NetworkEventSubscription initiates real-time event stream
+ * Client subscribes to network events
+ */
+message NetworkEventSubscription {
+  // Event filtering
+  repeated NetworkEventType event_types = 1;  // Filter by event types
+  string filter_peer_id = 2;                  // Filter events for specific peer
+
+  // Stream options
+  int32 stream_timeout_seconds = 3;           // Stream timeout (0 = no timeout)
+  bool include_historical = 4;                // Include recent historical events
+}
+
+/**
+ * NetworkEvent represents a single network event
+ * Streamed to subscribed clients
+ */
+message NetworkEvent {
+  // Event identification
+  string event_id = 1;                     // Unique event identifier
+  NetworkEventType event_type = 2;         // Event type
+  google.protobuf.Timestamp timestamp = 3;
+
+  // Event data
+  string peer_id = 4;                      // Associated peer ID (if applicable)
+  string event_message = 5;                // Human-readable event message
+  map<string, string> event_metadata = 6;  // Additional event metadata
+
+  // Streaming metadata
+  string stream_id = 7;                    // Stream identifier
+  int64 event_sequence = 8;                // Event sequence number in stream
+}
+
+/**
+ * NetworkEventType defines types of network events
+ */
+enum NetworkEventType {
+  EVENT_UNKNOWN = 0;
+  EVENT_PEER_CONNECTED = 1;                // New peer connected
+  EVENT_PEER_DISCONNECTED = 2;             // Peer disconnected
+  EVENT_MESSAGE_RECEIVED = 3;              // Message received
+  EVENT_MESSAGE_SENT = 4;                  // Message sent
+  EVENT_NETWORK_PARTITION = 5;             // Network partition detected
+  EVENT_NETWORK_RECOVERED = 6;             // Network recovered from partition
+  EVENT_PEER_BANNED = 7;                   // Peer banned for malicious behavior
+  EVENT_SYNC_STARTED = 8;                  // Blockchain sync started
+  EVENT_SYNC_COMPLETED = 9;                // Blockchain sync completed
+  EVENT_HIGH_LATENCY = 10;                 // High latency detected
+  EVENT_BANDWIDTH_EXCEEDED = 11;           // Bandwidth limit exceeded
+}
+
+// ============================================================================
+// Service gRPC definition for NetworkService
+// ============================================================================
+
+/**
+ * NetworkService provides peer management and network communication
+ * Supports peer discovery, message broadcasting, and real-time event streaming
+ */
+service NetworkService {
+  /**
+   * GetNetworkStatus returns current network health and metrics
+   * RPC: Unary (Uni<NetworkStatus>)
+   * Input: GetNetworkStatusRequest
+   * Output: NetworkStatus
+   * Timeout: 5 seconds
+   * Performance Target: <5ms latency
+   * Purpose: Monitor network health and connectivity
+   */
+  rpc GetNetworkStatus(GetNetworkStatusRequest) returns (NetworkStatus);
+
+  /**
+   * GetPeerList returns list of connected peers with metadata
+   * RPC: Unary (Uni<PeerListResponse>)
+   * Input: GetPeerListRequest
+   * Output: PeerListResponse
+   * Timeout: 10 seconds
+   * Performance Target: <10ms latency
+   * Purpose: Retrieve peer information for monitoring and discovery
+   */
+  rpc GetPeerList(GetPeerListRequest) returns (PeerListResponse);
+
+  /**
+   * BroadcastMessage broadcasts message to network peers
+   * RPC: Unary (Uni<BroadcastMessageResponse>)
+   * Input: BroadcastMessageRequest
+   * Output: BroadcastMessageResponse
+   * Timeout: 30 seconds
+   * Performance Target: <50ms peer-to-peer propagation
+   * Purpose: Efficient network-wide message distribution
+   */
+  rpc BroadcastMessage(BroadcastMessageRequest) returns (BroadcastMessageResponse);
+
+  /**
+   * SubscribeNetworkEvents streams real-time network events
+   * RPC: Server-side Streaming (Multi<NetworkEvent>)
+   * Input: NetworkEventSubscription
+   * Output: stream NetworkEvent
+   * Timeout: Configurable (default: no timeout)
+   * Performance Target: 100+ concurrent subscribers
+   * Purpose: Real-time network monitoring and event notification
+   */
+  rpc SubscribeNetworkEvents(NetworkEventSubscription) returns (stream NetworkEvent);
+}

@@ -1,0 +1,512 @@
+syntax = "proto3";
+
+package io.aurigraph.v11.proto;
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+import "network.proto";
+
+option java_multiple_files = true;
+option java_package = "io.aurigraph.v11.proto";
+option java_outer_classname = "NetworkStreamProto";
+
+/**
+ * Network Stream Protocol Buffer Definitions
+ *
+ * Replaces WebSocket network topology monitoring streams with gRPC-Web bidirectional streaming.
+ * Provides real-time streaming of network status, topology changes, and peer connections.
+ *
+ * Key Benefits over WebSocket+JSON:
+ * - 60-70% bandwidth reduction (Protobuf vs JSON)
+ * - Type-safe client generation (TypeScript + Java)
+ * - Built-in flow control and backpressure
+ * - HTTP/2 multiplexing (multiple streams, one connection)
+ */
+
+// ============================================================================
+// Node Type Enumeration
+// ============================================================================
+
+enum NodeType {
+  VALIDATOR = 0;
+  FULL_NODE = 1;
+  LIGHT_NODE = 2;
+  ARCHIVE_NODE = 3;
+}
+
+// ============================================================================
+// Network Topology
+// ============================================================================
+
+message NetworkTopologyUpdate {
+  int32 total_nodes = 1;
+  int32 active_nodes = 2;
+  int32 syncing_nodes = 3;
+  int32 offline_nodes = 4;
+
+  repeated NodeTopologyInfo nodes = 5;
+  repeated PeerConnection connections = 6;
+
+  // Network Statistics
+  NetworkStatistics statistics = 7;
+
+  google.protobuf.Timestamp timestamp = 8;
+}
+
+message NodeTopologyInfo {
+  NodeInfo node = 1;
+
+  // Connectivity
+  repeated string connected_peer_ids = 2;
+  int32 peer_count = 3;
+  double average_peer_latency_ms = 4;
+
+  // Network Position
+  string region = 5;
+  string data_center = 6;
+  GeoLocation geo_location = 7;
+
+  // Reachability
+  bool is_reachable = 8;
+  double uptime_percent = 9;
+  google.protobuf.Timestamp last_seen = 10;
+}
+
+message PeerConnection {
+  string connection_id = 1;
+  string node_id_1 = 2;
+  string node_id_2 = 3;
+
+  enum ConnectionType {
+    DIRECT = 0;
+    RELAYED = 1;
+    TUNNELED = 2;
+  }
+
+  ConnectionType connection_type = 4;
+
+  enum ConnectionStatus {
+    CONNECTED = 0;
+    CONNECTING = 1;
+    DISCONNECTED = 2;
+    FAILED = 3;
+  }
+
+  ConnectionStatus status = 5;
+
+  // Connection Metrics
+  double latency_ms = 6;
+  int64 bandwidth_mbps = 7;
+  int64 bytes_sent = 8;
+  int64 bytes_received = 9;
+
+  google.protobuf.Timestamp established_at = 10;
+  google.protobuf.Timestamp last_activity = 11;
+}
+
+message GeoLocation {
+  double latitude = 1;
+  double longitude = 2;
+  string country = 3;
+  string city = 4;
+}
+
+message NetworkStatistics {
+  // Node Statistics
+  int32 total_nodes = 1;
+  int32 validator_nodes = 2;
+  int32 full_nodes = 3;
+  int32 light_nodes = 4;
+
+  // Connectivity
+  int32 total_connections = 5;
+  double average_connections_per_node = 6;
+  double network_density = 7;  // Ratio of actual to possible connections
+
+  // Performance
+  double average_network_latency_ms = 8;
+  double median_network_latency_ms = 9;
+  double p95_network_latency_ms = 10;
+
+  // Bandwidth
+  int64 total_bandwidth_mbps = 11;
+  int64 network_throughput_mbps = 12;
+
+  // Health
+  double network_health_score = 13;  // 0-100
+  int32 partitioned_nodes = 14;
+  int32 isolated_nodes = 15;
+}
+
+// ============================================================================
+// Node Events
+// ============================================================================
+
+message NodeJoinedEvent {
+  NodeInfo node = 1;
+  NodeType node_type = 2;
+  string join_reason = 3;
+  google.protobuf.Timestamp joined_at = 4;
+}
+
+message NodeLeftEvent {
+  enum LeaveReason {
+    GRACEFUL_SHUTDOWN = 0;
+    NETWORK_FAILURE = 1;
+    TIMEOUT = 2;
+    KICKED = 3;
+    BANNED = 4;
+  }
+
+  string node_id = 1;
+  LeaveReason leave_reason = 2;
+  google.protobuf.Timestamp left_at = 3;
+}
+
+message NodeStatusChangeEvent {
+  enum StatusChange {
+    ONLINE = 0;
+    OFFLINE = 1;
+    SYNCING = 2;
+    SYNCED = 3;
+    ERROR = 4;
+  }
+
+  string node_id = 1;
+  StatusChange old_status = 2;
+  StatusChange new_status = 3;
+  string change_reason = 4;
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+message NodeSyncProgressEvent {
+  string node_id = 1;
+  int64 current_block = 2;
+  int64 target_block = 3;
+  double sync_progress_percent = 4;
+  double blocks_per_second = 5;
+  int64 estimated_completion_seconds = 6;
+  google.protobuf.Timestamp timestamp = 7;
+}
+
+// ============================================================================
+// Peer Connection Events
+// ============================================================================
+
+message PeerConnectedEvent {
+  PeerConnection connection = 1;
+  string initiator_node_id = 2;
+  string responder_node_id = 3;
+  google.protobuf.Timestamp connected_at = 4;
+}
+
+message PeerDisconnectedEvent {
+  enum DisconnectReason {
+    NORMAL_CLOSURE = 0;
+    TIMEOUT = 1;
+    NETWORK_ERROR = 2;
+    PROTOCOL_ERROR = 3;
+    REJECTED = 4;
+  }
+
+  string connection_id = 1;
+  string node_id_1 = 2;
+  string node_id_2 = 3;
+  DisconnectReason reason = 4;
+  google.protobuf.Timestamp disconnected_at = 5;
+}
+
+message PeerConnectionQualityUpdate {
+  string connection_id = 1;
+  string node_id_1 = 2;
+  string node_id_2 = 3;
+
+  // Quality Metrics
+  double latency_ms = 4;
+  double jitter_ms = 5;
+  double packet_loss_percent = 6;
+  int64 bandwidth_mbps = 7;
+
+  enum QualityRating {
+    EXCELLENT = 0;
+    GOOD = 1;
+    FAIR = 2;
+    POOR = 3;
+    CRITICAL = 4;
+  }
+
+  QualityRating quality_rating = 8;
+  google.protobuf.Timestamp timestamp = 9;
+}
+
+// ============================================================================
+// Network Performance Metrics
+// ============================================================================
+
+message NetworkPerformanceUpdate {
+  // Throughput
+  int64 messages_per_second = 1;
+  int64 transactions_per_second = 2;
+  int64 blocks_per_second = 3;
+
+  // Latency
+  double average_message_latency_ms = 4;
+  double p50_message_latency_ms = 5;
+  double p95_message_latency_ms = 6;
+  double p99_message_latency_ms = 7;
+
+  // Bandwidth
+  int64 total_bytes_sent_per_second = 8;
+  int64 total_bytes_received_per_second = 9;
+  double bandwidth_utilization_percent = 10;
+
+  // Protocol Performance
+  map<string, int64> messages_by_protocol = 11;
+  map<string, double> latency_by_protocol = 12;
+
+  google.protobuf.Timestamp timestamp = 13;
+}
+
+message NetworkHealthUpdate {
+  enum NetworkHealth {
+    HEALTHY = 0;
+    DEGRADED = 1;
+    UNSTABLE = 2;
+    CRITICAL = 3;
+  }
+
+  NetworkHealth health_status = 1;
+  double health_score = 2;  // 0-100
+
+  // Issues & Concerns
+  repeated NetworkIssue issues = 3;
+  repeated string warnings = 4;
+
+  // Availability
+  double network_uptime_percent = 5;
+  int32 reachable_nodes_count = 6;
+  int32 unreachable_nodes_count = 7;
+
+  // Partitioning Detection
+  bool network_partitioned = 8;
+  int32 partition_count = 9;
+  repeated NetworkPartition partitions = 10;
+
+  google.protobuf.Timestamp timestamp = 11;
+}
+
+message NetworkIssue {
+  enum Severity {
+    INFO = 0;
+    WARNING = 1;
+    CRITICAL = 2;
+  }
+
+  string issue_id = 1;
+  Severity severity = 2;
+  string description = 3;
+  repeated string affected_nodes = 4;
+  string resolution = 5;
+  google.protobuf.Timestamp detected_at = 6;
+  bool resolved = 7;
+}
+
+message NetworkPartition {
+  string partition_id = 1;
+  repeated string node_ids = 2;
+  int32 node_count = 3;
+  bool is_majority_partition = 4;
+  google.protobuf.Timestamp detected_at = 5;
+}
+
+// ============================================================================
+// Geographic Distribution
+// ============================================================================
+
+message GeographicDistributionUpdate {
+  map<string, int32> nodes_by_region = 1;
+  map<string, int32> nodes_by_country = 2;
+  repeated RegionInfo regions = 3;
+  google.protobuf.Timestamp timestamp = 4;
+}
+
+message RegionInfo {
+  string region_name = 1;
+  int32 node_count = 2;
+  GeoLocation center = 3;
+  double average_inter_region_latency_ms = 4;
+  repeated string node_ids = 5;
+}
+
+// ============================================================================
+// Network Traffic Analysis
+// ============================================================================
+
+message NetworkTrafficUpdate {
+  // Message Traffic
+  int64 total_messages_sent = 1;
+  int64 total_messages_received = 2;
+  map<string, int64> messages_by_type = 3;
+
+  // Data Traffic
+  int64 total_bytes_sent = 4;
+  int64 total_bytes_received = 5;
+  map<string, int64> bytes_by_protocol = 6;
+
+  // Top Talkers
+  repeated NodeTrafficInfo top_senders = 7;
+  repeated NodeTrafficInfo top_receivers = 8;
+
+  google.protobuf.Timestamp timestamp = 9;
+}
+
+message NodeTrafficInfo {
+  string node_id = 1;
+  int64 bytes_sent = 2;
+  int64 bytes_received = 3;
+  int64 messages_sent = 4;
+  int64 messages_received = 5;
+}
+
+// ============================================================================
+// Stream Control Messages
+// ============================================================================
+
+message NetworkSubscribeRequest {
+  string client_id = 1;
+  string session_token = 2;
+
+  // Subscription Configuration
+  repeated string event_types = 3;  // ["topology", "nodes", "peers", "performance", "health", "traffic", "geography"]
+  int32 update_interval_ms = 4;     // Minimum interval between updates (default: 3000ms)
+
+  // Filtering
+  repeated string node_filter = 5;
+  repeated string region_filter = 6;
+  repeated NodeType node_type_filter = 7;
+
+  // Options
+  int32 buffer_size = 8;            // Client-side buffer (default: 50)
+  bool include_inactive_nodes = 9;
+  bool detailed_topology = 10;      // Include full connection graph
+}
+
+message NetworkSubscribeResponse {
+  bool success = 1;
+  string message = 2;
+  string subscription_id = 3;
+  google.protobuf.Timestamp started_at = 4;
+  NetworkTopologyUpdate initial_topology = 5;
+}
+
+message NetworkUnsubscribeRequest {
+  string subscription_id = 1;
+  string client_id = 2;
+}
+
+message NetworkUnsubscribeResponse {
+  bool success = 1;
+  string message = 2;
+  int64 total_events_delivered = 3;
+  google.protobuf.Timestamp ended_at = 4;
+}
+
+// ============================================================================
+// Real-Time Network Events (Union Type)
+// ============================================================================
+
+message NetworkEventStream {
+  google.protobuf.Timestamp timestamp = 1;
+  string event_id = 2;
+
+  oneof event_data {
+    NetworkTopologyUpdate topology_update = 3;
+    NodeJoinedEvent node_joined = 4;
+    NodeLeftEvent node_left = 5;
+    NodeStatusChangeEvent node_status_change = 6;
+    NodeSyncProgressEvent sync_progress = 7;
+    PeerConnectedEvent peer_connected = 8;
+    PeerDisconnectedEvent peer_disconnected = 9;
+    PeerConnectionQualityUpdate connection_quality = 10;
+    NetworkPerformanceUpdate performance = 11;
+    NetworkHealthUpdate health = 12;
+    GeographicDistributionUpdate geography = 13;
+    NetworkTrafficUpdate traffic = 14;
+  }
+}
+
+// ============================================================================
+// Interactive Commands
+// ============================================================================
+
+message NetworkCommand {
+  enum CommandType {
+    CHANGE_UPDATE_INTERVAL = 0;
+    ADD_FILTER = 1;
+    REMOVE_FILTER = 2;
+    TOGGLE_EVENT_TYPE = 3;
+    PAUSE = 4;
+    RESUME = 5;
+    REQUEST_SNAPSHOT = 6;
+    FOCUS_NODE = 7;
+    FOCUS_REGION = 8;
+  }
+
+  CommandType command = 1;
+  map<string, string> parameters = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+// ============================================================================
+// Historical Queries
+// ============================================================================
+
+message NetworkHistoricalQuery {
+  google.protobuf.Timestamp start_time = 1;
+  google.protobuf.Timestamp end_time = 2;
+  repeated string event_types = 3;
+  repeated string node_ids = 4;
+  int32 limit = 5;
+  int32 offset = 6;
+}
+
+message NetworkHistoricalResponse {
+  repeated NetworkEventStream events = 1;
+  int32 total_events = 2;
+  bool has_more = 3;
+  google.protobuf.Timestamp query_executed_at = 4;
+}
+
+// ============================================================================
+// gRPC Service Definition
+// ============================================================================
+
+service NetworkStreamService {
+  // Get current network topology (one-shot)
+  rpc GetNetworkTopology(NetworkSubscribeRequest) returns (NetworkTopologyUpdate);
+
+  // Get network health (one-shot)
+  rpc GetNetworkHealth(NetworkSubscribeRequest) returns (NetworkHealthUpdate);
+
+  // Get geographic distribution (one-shot)
+  rpc GetGeographicDistribution(NetworkSubscribeRequest) returns (GeographicDistributionUpdate);
+
+  // Subscribe to network events (server streaming)
+  rpc StreamNetworkEvents(NetworkSubscribeRequest) returns (stream NetworkEventStream);
+
+  // Subscribe to specific event types (server streaming)
+  rpc StreamTopologyUpdates(NetworkSubscribeRequest) returns (stream NetworkTopologyUpdate);
+  rpc StreamNodeEvents(NetworkSubscribeRequest) returns (stream NodeStatusChangeEvent);
+  rpc StreamPeerConnections(NetworkSubscribeRequest) returns (stream PeerConnectedEvent);
+  rpc StreamNetworkPerformance(NetworkSubscribeRequest) returns (stream NetworkPerformanceUpdate);
+  rpc StreamNetworkHealth(NetworkSubscribeRequest) returns (stream NetworkHealthUpdate);
+
+  // Bidirectional streaming for interactive monitoring
+  rpc InteractiveNetworkMonitor(stream NetworkCommand) returns (stream NetworkEventStream);
+
+  // Historical network data query
+  rpc QueryHistoricalEvents(NetworkHistoricalQuery) returns (NetworkHistoricalResponse);
+
+  // Unsubscribe from streaming
+  rpc Unsubscribe(NetworkUnsubscribeRequest) returns (NetworkUnsubscribeResponse);
+}

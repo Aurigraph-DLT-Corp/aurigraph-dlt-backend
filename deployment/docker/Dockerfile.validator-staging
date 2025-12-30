@@ -1,0 +1,80 @@
+################################################################################
+# Dockerfile.validator-staging - Validator Node Staging Build
+# Purpose: Pre-production testing with performance monitoring
+# Resources: 12-24 CPU cores, 3-6GB RAM
+# Build Type: Staging - Optimized performance with monitoring hooks
+################################################################################
+
+FROM ghcr.io/graalvm/native-image-community:21-muslib AS build
+
+WORKDIR /build
+COPY .mvn/ .mvn/
+COPY mvnw pom.xml ./
+RUN ./mvnw dependency:go-offline -B
+
+COPY src/ src/
+# Staging build with performance optimizations
+RUN ./mvnw clean package -Pnative-fast \
+    -DskipTests \
+    -Dquarkus.native.container-build=false \
+    -Dquarkus.native.native-image-xmx=6g
+
+################################################################################
+# Runtime Stage - Staging
+################################################################################
+
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3
+
+RUN microdnf install -y \
+    supervisor \
+    util-linux \
+    procps-ng \
+    libstdc++ \
+    zlib \
+    curl \
+    && microdnf clean all
+
+WORKDIR /app
+
+COPY --from=build --chown=1001:root /build/target/*-runner /app/aurigraph-v11
+COPY --chown=1001:root scripts/multi-node-launcher.sh /app/
+COPY --chown=1001:root config/supervisord-validator.conf /etc/supervisord.conf
+
+RUN mkdir -p /app/logs /app/data /app/pids /app/config && \
+    chmod +x /app/multi-node-launcher.sh /app/aurigraph-v11
+
+# Staging environment with monitoring
+ENV NODE_TYPE=VALIDATOR \
+    CONSENSUS_ROLE=ACTIVE \
+    BLOCK_PRODUCTION=ENABLED \
+    STATE_STORAGE=ENABLED \
+    TRANSACTION_PROCESSING=ENABLED \
+    PUBLIC_API=DISABLED \
+    BUILD_TYPE=staging \
+    QUARKUS_LOG_LEVEL=INFO \
+    MIN_CPU=12 \
+    MIN_MEMORY=3G \
+    AURIGRAPH_NODE_COUNT=3
+
+# Staging performance settings
+ENV AURIGRAPH_THREAD_POOL_SIZE=192 \
+    AURIGRAPH_BATCH_SIZE=35000 \
+    AURIGRAPH_MEMORY_MODE=performance \
+    AURIGRAPH_MONITORING=enabled
+
+# Expose validator ports (3 nodes × 3 ports)
+EXPOSE 9003-9006 9004 9005
+
+# Health check
+HEALTHCHECK --interval=12s --timeout=4s --start-period=20s --retries=3 \
+    CMD curl -f http://localhost:9003/q/health/ready || exit 1
+
+ENTRYPOINT ["/app/multi-node-launcher.sh"]
+
+LABEL role="validator" \
+      type="consensus-node" \
+      build-type="staging" \
+      min-cpu="12" \
+      min-memory="3GB" \
+      max-nodes="6" \
+      version="11.0.0-staging"

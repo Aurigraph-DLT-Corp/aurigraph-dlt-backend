@@ -1,0 +1,38 @@
+################################################################################
+# Dockerfile.simple - Simple JVM Container using pre-built JAR
+################################################################################
+
+FROM eclipse-temurin:21-jre-jammy
+
+# Install required packages
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl wget && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create user
+RUN useradd -r -u 1001 -g root -m -s /bin/bash aurigraph
+
+WORKDIR /app
+
+# Copy pre-built uber-JAR
+COPY target/aurigraph-v11-standalone-11.3.2-runner.jar /app/app.jar
+
+# Environment variables
+ENV JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 -Dquarkus.http.port=9003 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -Dquarkus.profile=prod"
+ENV PORT="9003"
+
+# Health check
+HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:9003/q/health/ready || exit 1
+
+USER 1001
+
+EXPOSE 9003 9004 9005
+
+# Run the application
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+
+# Labels
+LABEL name="aurigraph-v11-jvm" \
+      version="11.3.2" \
+      description="Aurigraph V11 JVM Container - Pre-built JAR"

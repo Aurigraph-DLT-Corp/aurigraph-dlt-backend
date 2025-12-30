@@ -1,0 +1,129 @@
+syntax = "proto3";
+
+package io.aurigraph.v11.grpc;
+
+option java_multiple_files = true;
+option java_package = "io.aurigraph.v11.grpc.blockchain";
+option java_outer_classname = "BlockchainServiceProto";
+
+// Blockchain Service - Block and chain management
+service BlockchainService {
+  // Get block by number or hash
+  rpc GetBlock(BlockQuery) returns (Block);
+
+  // Get latest block
+  rpc GetLatestBlock(LatestBlockRequest) returns (Block);
+
+  // Get block range
+  rpc GetBlockRange(BlockRangeQuery) returns (BlockList);
+
+  // Stream new blocks
+  rpc StreamBlocks(BlockStreamRequest) returns (stream Block);
+
+  // Get blockchain info
+  rpc GetBlockchainInfo(InfoRequest) returns (BlockchainInfo);
+
+  // Get chain statistics
+  rpc GetChainStats(StatsRequest) returns (ChainStatistics);
+}
+
+message BlockQuery {
+  oneof query {
+    int64 block_number = 1;
+    string block_hash = 2;
+  }
+}
+
+message LatestBlockRequest {
+  bool include_transactions = 1;
+}
+
+message BlockRangeQuery {
+  int64 start_block = 1;
+  int64 end_block = 2;
+  bool include_transactions = 3;
+  int32 max_results = 4;
+}
+
+message BlockStreamRequest {
+  int64 start_from_block = 1;
+  bool include_transactions = 2;
+}
+
+message InfoRequest {
+  bool include_validator_set = 1;
+}
+
+message StatsRequest {
+  int64 from_block = 1;
+  int64 to_block = 2;
+}
+
+message Block {
+  int64 block_number = 1;
+  string block_hash = 2;
+  string previous_hash = 3;
+  int64 timestamp = 4;
+  string proposer = 5;
+  int32 transaction_count = 6;
+  repeated string transaction_hashes = 7;
+  bytes state_root = 8;
+  bytes transactions_root = 9;
+  bytes receipts_root = 10;
+  int64 gas_used = 11;
+  int64 gas_limit = 12;
+  bytes extra_data = 13;
+  repeated Transaction transactions = 14;
+  int32 confirmations = 15;
+}
+
+message Transaction {
+  string tx_hash = 1;
+  string from = 2;
+  string to = 3;
+  int64 value = 4;
+  int64 gas_price = 5;
+  int64 gas_used = 6;
+  int64 nonce = 7;
+  bytes input = 8;
+  int64 block_number = 9;
+  int32 transaction_index = 10;
+}
+
+message BlockList {
+  repeated Block blocks = 1;
+  int32 total_count = 2;
+  bool has_more = 3;
+}
+
+message BlockchainInfo {
+  int64 latest_block_number = 1;
+  string latest_block_hash = 2;
+  int64 total_transactions = 3;
+  int64 genesis_timestamp = 4;
+  string network_id = 5;
+  string consensus_algorithm = 6;
+  int32 validator_count = 7;
+  repeated ValidatorInfo validators = 8;
+  int64 avg_block_time = 9;
+  int64 current_tps = 10;
+}
+
+message ValidatorInfo {
+  string validator_id = 1;
+  string address = 2;
+  int64 stake_amount = 3;
+  bool is_online = 4;
+  int32 blocks_produced = 5;
+}
+
+message ChainStatistics {
+  int64 total_blocks = 1;
+  int64 total_transactions = 2;
+  int64 avg_transactions_per_block = 3;
+  int64 avg_block_time_ms = 4;
+  int64 peak_tps = 5;
+  int64 total_gas_used = 6;
+  int64 unique_addresses = 7;
+  int64 active_validators = 8;
+}

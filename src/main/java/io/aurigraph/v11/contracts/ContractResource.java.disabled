@@ -1,0 +1,344 @@
+package io.aurigraph.v11.contracts;
+
+import io.aurigraph.v11.contracts.models.*;
+import io.smallrye.mutiny.Uni;
+import jakarta.inject.Inject;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import java.util.*;
+import java.time.Instant;
+import io.quarkus.logging.Log;
+
+/**
+ * REST API endpoints for Ricardian Smart Contracts
+ * Provides high-performance reactive endpoints for contract management
+ */
+@Path("/api/v11/contracts")
+@Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
+public class ContractResource {
+
+    // @Inject
+    // SmartContractService contractService; // TODO: Re-enable after SmartContractService is fixed
+
+    @Inject
+    ContractRepository contractRepository;
+
+    /**
+     * Create a new Ricardian contract
+     */
+    @POST
+    @Path("/create")
+    @io.smallrye.common.annotation.Blocking
+    public Uni<Response> createContract(ContractCreationRequest request) {
+        Log.infof("Creating new Ricardian contract of type: %s", request.getContractType());
+        
+        return contractService.createContract(request)
+            .map(contract -> {
+                Log.infof("Successfully created contract: %s", contract.getContractId());
+                return Response.status(Response.Status.CREATED)
+                    .entity(contract)
+                    .build();
+            })
+            .onFailure().recoverWithItem(throwable -> {
+                Log.errorf("Failed to create contract: %s", throwable.getMessage());
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", throwable.getMessage()))
+                    .build();
+            });
+    }
+
+    /**
+     * Get contract by ID
+     */
+    @GET
+    @Path("/{contractId}")
+    public Uni<Response> getContract(@PathParam("contractId") String contractId) {
+        return contractRepository.findById(contractId)
+            .map(contract -> {
+                if (contract == null) {
+                    return Response.status(Response.Status.NOT_FOUND)
+                        .entity(Map.of("error", "Contract not found"))
+                        .build();
+                }
+                return Response.ok(contract).build();
+            });
+    }
+
+    /**
+     * Execute a smart contract
+     */
+    @POST
+    @Path("/{contractId}/execute")
+    public Uni<Response> executeContract(
+            @PathParam("contractId") String contractId,
+            Map<String, Object> parameters) {
+        
+        Log.infof("Executing contract: %s with parameters: %s", contractId, parameters);
+        
+        return contractService.executeContract(contractId, parameters != null ? parameters : new HashMap<>())
+            .map(result -> {
+                if (result.isSuccess()) {
+                    Log.infof("Contract %s executed successfully in %d ns", 
+                        contractId, result.getExecutionTime());
+                    return Response.ok(result).build();
+                } else {
+                    Log.errorf("Contract %s execution failed: %s", contractId, result.getError());
+                    return Response.status(Response.Status.BAD_REQUEST)
+                        .entity(result)
+                        .build();
+                }
+            })
+            .onFailure().recoverWithItem(throwable -> {
+                Log.errorf("Contract execution error: %s", throwable.getMessage());
+                return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(Map.of("error", throwable.getMessage()))
+                    .build();
+            });
+    }
+
+    /**
+     * Add signature to a contract
+     */
+    @POST
+    @Path("/{contractId}/sign")
+    public Uni<Response> signContract(
+            @PathParam("contractId") String contractId,
+            ContractSignatureRequest signatureRequest) {
+        
+        Log.infof("Adding signature to contract: %s from: %s", 
+            contractId, signatureRequest.getSignerAddress());
+        
+        ContractSignature signature = new ContractSignature(
+            signatureRequest.getSignerAddress(),
+            signatureRequest.getSignature(),
+            signatureRequest.getPublicKey()
+        );
+        
+        return contractService.addSignature(contractId, signature)
+            .map(success -> {
+                if (success) {
+                    Log.infof("Successfully added signature to contract: %s", contractId);
+                    return Response.ok(Map.of("success", true, "message", "Signature added successfully")).build();
+                } else {
+                    return Response.status(Response.Status.BAD_REQUEST)
+                        .entity(Map.of("error", "Failed to add signature"))
+                        .build();
+                }
+            })
+            .onFailure().recoverWithItem(throwable -> {
+                Log.errorf("Signature validation failed: %s", throwable.getMessage());
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", throwable.getMessage()))
+                    .build();
+            });
+    }
+
+    /**
+     * Get all contracts
+     */
+    @GET
+    public Uni<Response> getAllContracts(
+            @QueryParam("type") String contractType,
+            @QueryParam("status") String status,
+            @QueryParam("party") String party) {
+        
+        // Apply filters based on query parameters
+        if (contractType != null) {
+            return contractRepository.findByType(contractType)
+                .map(contracts -> Response.ok(contracts).build());
+        }
+        
+        if (status != null) {
+            try {
+                ContractStatus contractStatus = ContractStatus.valueOf(status.toUpperCase());
+                return contractRepository.findByStatus(contractStatus)
+                    .map(contracts -> Response.ok(contracts).build());
+            } catch (IllegalArgumentException e) {
+                return Uni.createFrom().item(
+                    Response.status(Response.Status.BAD_REQUEST)
+                        .entity(Map.of("error", "Invalid status: " + status))
+                        .build()
+                );
+            }
+        }
+        
+        if (party != null) {
+            return contractRepository.findByParty(party)
+                .map(contracts -> Response.ok(contracts).build());
+        }
+        
+        // No filters - return all contracts
+        return contractRepository.findAll()
+            .map(contracts -> Response.ok(contracts).build());
+    }
+
+    /**
+     * Get contracts by type
+     */
+    @GET
+    @Path("/type/{contractType}")
+    public Uni<Response> getContractsByType(@PathParam("contractType") String contractType) {
+        return contractRepository.findByType(contractType)
+            .map(contracts -> Response.ok(contracts).build());
+    }
+
+    /**
+     * Get active contracts
+     */
+    @GET
+    @Path("/active")
+    public Uni<Response> getActiveContracts() {
+        return contractRepository.findActiveContracts()
+            .map(contracts -> Response.ok(contracts).build());
+    }
+
+    /**
+     * Get contracts pending signatures for a party
+     */
+    @GET
+    @Path("/pending-signatures/{party}")
+    public Uni<Response> getPendingSignatures(@PathParam("party") String party) {
+        return contractRepository.findPendingSignatures(party)
+            .map(contracts -> Response.ok(contracts).build());
+    }
+
+    /**
+     * Validate all signatures on a contract
+     */
+    @GET
+    @Path("/{contractId}/validate-signatures")
+    public Uni<Response> validateSignatures(@PathParam("contractId") String contractId) {
+        return contractService.validateAllSignatures(contractId)
+            .map(valid -> Response.ok(Map.of("valid", valid)).build())
+            .onFailure().recoverWithItem(throwable -> 
+                Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", throwable.getMessage()))
+                    .build()
+            );
+    }
+
+    /**
+     * Get contract service statistics
+     */
+    @GET
+    @Path("/stats")
+    public Uni<Response> getStats() {
+        return Uni.combine().all()
+            .unis(
+                Uni.createFrom().item(contractService.getStats()),
+                contractRepository.getStats()
+            )
+            .asTuple()
+            .map(tuple -> {
+                Map<String, Object> stats = new HashMap<>();
+                stats.put("service", tuple.getItem1());
+                stats.put("repository", tuple.getItem2());
+                stats.put("timestamp", Instant.now());
+                return Response.ok(stats).build();
+            });
+    }
+
+    /**
+     * Health check endpoint for contracts
+     */
+    @GET
+    @Path("/health")
+    public Uni<Response> health() {
+        return contractRepository.count()
+            .map(count -> {
+                Map<String, Object> health = new HashMap<>();
+                health.put("status", "UP");
+                health.put("totalContracts", count);
+                health.put("timestamp", Instant.now());
+                health.put("service", "SmartContractService");
+                return Response.ok(health).build();
+            });
+    }
+
+    /**
+     * Performance test endpoint
+     */
+    @POST
+    @Path("/performance-test")
+    public Uni<Response> performanceTest(@QueryParam("contracts") @DefaultValue("100") int contractCount) {
+        Log.infof("Starting performance test with %d contracts", contractCount);
+        
+        long startTime = System.nanoTime();
+        
+        // Create test contracts in parallel
+        List<Uni<RicardianContract>> contractCreations = new ArrayList<>();
+        
+        for (int i = 0; i < contractCount; i++) {
+            ContractCreationRequest request = createTestContractRequest(i);
+            contractCreations.add(contractService.createContract(request));
+        }
+        
+        return Uni.combine().all().unis(contractCreations)
+            .with(contracts -> {
+                long endTime = System.nanoTime();
+                long totalTime = endTime - startTime;
+                
+                Map<String, Object> result = new HashMap<>();
+                result.put("contractsCreated", contracts.size());
+                result.put("totalTimeNs", totalTime);
+                result.put("totalTimeMs", totalTime / 1_000_000);
+                result.put("averageTimePerContractNs", totalTime / contracts.size());
+                result.put("contractsPerSecond", (contracts.size() * 1_000_000_000L) / totalTime);
+                result.put("timestamp", Instant.now());
+                
+                Log.infof("Performance test completed: %d contracts in %d ms (%.2f contracts/sec)", 
+                    contracts.size(), totalTime / 1_000_000, 
+                    (double)(contracts.size() * 1_000_000_000L) / totalTime);
+                
+                return Response.ok(result).build();
+            })
+            .onFailure().recoverWithItem(throwable -> {
+                Log.errorf("Performance test failed: %s", throwable.getMessage());
+                return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(Map.of("error", throwable.getMessage()))
+                    .build();
+            });
+    }
+
+    // Helper method to create test contract requests
+    private ContractCreationRequest createTestContractRequest(int index) {
+        ContractCreationRequest request = new ContractCreationRequest();
+        request.setLegalText("Test legal text for contract " + index + ". This contract represents a test asset.");
+        request.setExecutableCode("function execute() { return 'Contract " + index + " executed'; }");
+        request.setContractType("TEST");
+        request.setParties(List.of("party1-" + index, "party2-" + index));
+        
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("test", "true");
+        metadata.put("index", String.valueOf(index));
+        metadata.put("created", Instant.now().toString());
+        request.setMetadata(metadata);
+        
+        return request;
+    }
+}
+
+/**
+ * Request object for contract signature
+ */
+class ContractSignatureRequest {
+    private String signerAddress;
+    private String signature;
+    private String publicKey;
+    private String algorithm = "CRYSTALS-Dilithium";
+
+    // Getters and setters
+    public String getSignerAddress() { return signerAddress; }
+    public void setSignerAddress(String signerAddress) { this.signerAddress = signerAddress; }
+    
+    public String getSignature() { return signature; }
+    public void setSignature(String signature) { this.signature = signature; }
+    
+    public String getPublicKey() { return publicKey; }
+    public void setPublicKey(String publicKey) { this.publicKey = publicKey; }
+    
+    public String getAlgorithm() { return algorithm; }
+    public void setAlgorithm(String algorithm) { this.algorithm = algorithm; }
+}

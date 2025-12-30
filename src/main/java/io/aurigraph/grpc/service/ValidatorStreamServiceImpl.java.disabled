@@ -1,0 +1,206 @@
+package io.aurigraph.grpc.service;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+import com.google.protobuf.Timestamp;
+
+import io.aurigraph.v11.proto.BlockProposalActivity;
+import io.aurigraph.v11.proto.ValidatorAnalytics;
+import io.aurigraph.v11.proto.ValidatorCommand;
+import io.aurigraph.v11.proto.ValidatorComparison;
+import io.aurigraph.v11.proto.ValidatorEventStream;
+import io.aurigraph.v11.proto.ValidatorHealthMetrics;
+import io.aurigraph.v11.proto.ValidatorHistoricalQuery;
+import io.aurigraph.v11.proto.ValidatorHistoricalResponse;
+import io.aurigraph.v11.proto.ValidatorInfo;
+import io.aurigraph.v11.proto.ValidatorPerformanceMetrics;
+import io.aurigraph.v11.proto.ValidatorRankingUpdate;
+import io.aurigraph.v11.proto.ValidatorReputationInfo;
+import io.aurigraph.v11.proto.ValidatorRewardEvent;
+import io.aurigraph.v11.proto.ValidatorSetUpdate;
+import io.aurigraph.v11.proto.ValidatorStatusUpdate;
+import io.aurigraph.v11.proto.ValidatorStreamService;
+import io.aurigraph.v11.proto.ValidatorSubscribeRequest;
+import io.aurigraph.v11.proto.ValidatorUnsubscribeRequest;
+import io.aurigraph.v11.proto.ValidatorUnsubscribeResponse;
+import io.aurigraph.v11.proto.VotingActivity;
+import io.aurigraph.v11.validators.LiveValidatorService;
+import io.quarkus.grpc.GrpcService;
+import io.smallrye.mutiny.Multi;
+import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
+import jakarta.inject.Inject;
+
+@GrpcService
+public class ValidatorStreamServiceImpl implements ValidatorStreamService {
+
+    @Inject
+    LiveValidatorService liveValidatorService;
+
+    @Override
+    public Uni<ValidatorStatusUpdate> getValidatorStatus(ValidatorSubscribeRequest request) {
+        String validatorId = request.getValidatorIdsCount() > 0 ? request.getValidatorIds(0) : "validator_0";
+        LiveValidatorService.ValidatorResponse validator = liveValidatorService.getValidatorById(validatorId);
+
+        if (validator == null) {
+            return Uni.createFrom().failure(new IllegalArgumentException("Validator not found"));
+        }
+
+        return Uni.createFrom().item(createValidatorStatusUpdate(validator));
+    }
+
+    @Override
+    public Uni<ValidatorSetUpdate> getValidatorSet(ValidatorSubscribeRequest request) {
+        LiveValidatorService.LiveValidatorsList list = liveValidatorService.getAllValidators("ACTIVE", 0, 1000);
+
+        List<ValidatorInfo> validators = list.validators.stream()
+                .map(this::mapToValidatorInfo)
+                .collect(Collectors.toList());
+
+        return Uni.createFrom().item(ValidatorSetUpdate.newBuilder()
+                .setTotalValidators(list.totalValidators)
+                .setActiveValidators(list.activeValidators)
+                .addAllValidatorList(validators)
+                .setTimestamp(toTimestamp(Instant.now()))
+                .build());
+    }
+
+    @Override
+    public Uni<ValidatorRankingUpdate> getValidatorRankings(ValidatorSubscribeRequest request) {
+        return Uni.createFrom().item(ValidatorRankingUpdate.newBuilder()
+                .setTimestamp(toTimestamp(Instant.now()))
+                .build());
+    }
+
+    @Override
+    public Multi<ValidatorEventStream> streamValidatorEvents(ValidatorSubscribeRequest request) {
+        return Multi.createFrom().ticks().every(Duration.ofMillis(request.getUpdateIntervalMs() > 0 ? request.getUpdateIntervalMs() : 2000))
+                .onItem().transform(tick -> {
+                    String validatorId = request.getValidatorIdsCount() > 0 ? request.getValidatorIds(0) : "validator_0";
+                    LiveValidatorService.ValidatorResponse validator = liveValidatorService.getValidatorById(validatorId);
+
+                    if (validator == null) return null;
+
+                    return ValidatorEventStream.newBuilder()
+                            .setTimestamp(toTimestamp(Instant.now()))
+                            .setEventId(UUID.randomUUID().toString())
+                            .setValidatorId(validatorId)
+                            .setStatusUpdate(createValidatorStatusUpdate(validator))
+                            .build();
+                })
+                .select().where(item -> item != null)
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+    }
+
+    @Override
+    public Multi<ValidatorStatusUpdate> streamValidatorStatus(ValidatorSubscribeRequest request) {
+        return Multi.createFrom().ticks().every(Duration.ofMillis(request.getUpdateIntervalMs() > 0 ? request.getUpdateIntervalMs() : 2000))
+                .onItem().transform(tick -> {
+                    String validatorId = request.getValidatorIdsCount() > 0 ? request.getValidatorIds(0) : "validator_0";
+                    LiveValidatorService.ValidatorResponse validator = liveValidatorService.getValidatorById(validatorId);
+
+                    if (validator == null) return null;
+
+                    return createValidatorStatusUpdate(validator);
+                })
+                .select().where(item -> item != null)
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+    }
+
+    @Override
+    public Multi<BlockProposalActivity> streamBlockProposals(ValidatorSubscribeRequest request) {
+        return Multi.createFrom().empty(); // Placeholder
+    }
+
+    @Override
+    public Multi<VotingActivity> streamVotingActivity(ValidatorSubscribeRequest request) {
+        return Multi.createFrom().empty(); // Placeholder
+    }
+
+    @Override
+    public Multi<ValidatorRewardEvent> streamRewards(ValidatorSubscribeRequest request) {
+        return Multi.createFrom().empty(); // Placeholder
+    }
+
+    @Override
+    public Multi<ValidatorEventStream> interactiveValidatorMonitor(Multi<ValidatorCommand> request) {
+        return request.onItem().transformToMulti(cmd ->
+            streamValidatorEvents(ValidatorSubscribeRequest.newBuilder().build())
+                .map(event -> ValidatorEventStream.newBuilder()
+                    .setStreamId("interactive-" + System.currentTimeMillis())
+                    .setTimestamp(toTimestamp(Instant.now()))
+                    .build())
+        ).concatenate();
+    }
+
+    @Override
+    public Uni<ValidatorHistoricalResponse> queryHistoricalEvents(ValidatorHistoricalQuery request) {
+        return Uni.createFrom().item(ValidatorHistoricalResponse.newBuilder()
+                .setTotalEvents(0)
+                .setQueryExecutedAt(toTimestamp(Instant.now()))
+                .build());
+    }
+
+    @Override
+    public Uni<ValidatorAnalytics> getValidatorAnalytics(ValidatorHistoricalQuery request) {
+        return Uni.createFrom().item(ValidatorAnalytics.newBuilder()
+                .setValidatorId(request.getValidatorIdsCount() > 0 ? request.getValidatorIds(0) : "")
+                .build());
+    }
+
+    @Override
+    public Uni<ValidatorComparison> compareValidators(ValidatorHistoricalQuery request) {
+        return Uni.createFrom().item(ValidatorComparison.newBuilder()
+                .setTimestamp(toTimestamp(Instant.now()))
+                .build());
+    }
+
+    @Override
+    public Uni<ValidatorUnsubscribeResponse> unsubscribe(ValidatorUnsubscribeRequest request) {
+        return Uni.createFrom().item(ValidatorUnsubscribeResponse.newBuilder()
+                .setSuccess(true)
+                .setMessage("Unsubscribed")
+                .setEndedAt(toTimestamp(Instant.now()))
+                .build());
+    }
+
+    private ValidatorStatusUpdate createValidatorStatusUpdate(LiveValidatorService.ValidatorResponse validator) {
+        return ValidatorStatusUpdate.newBuilder()
+                .setValidator(mapToValidatorInfo(validator))
+                .setHealth(ValidatorHealthMetrics.newBuilder()
+                        .setStatus(validator.isOnline ? ValidatorHealthMetrics.HealthStatus.HEALTHY : ValidatorHealthMetrics.HealthStatus.OFFLINE)
+                        .setHealthScore(validator.uptime)
+                        .setUptimePercent(validator.uptime)
+                        .build())
+                .setPerformance(ValidatorPerformanceMetrics.newBuilder()
+                        .setBlocksProposed(validator.blocksProduced)
+                        .setOverallPerformanceScore(validator.uptime) // Using uptime as proxy
+                        .build())
+                .setReputation(ValidatorReputationInfo.newBuilder()
+                        .setCurrentReputation(95.0) // Dummy value
+                        .build())
+                .setTimestamp(toTimestamp(Instant.now()))
+                .build();
+    }
+
+    private ValidatorInfo mapToValidatorInfo(LiveValidatorService.ValidatorResponse validator) {
+        return ValidatorInfo.newBuilder()
+                .setValidatorId(validator.id)
+                .setPublicKey(validator.address) // Mapping address to public key for now
+                .setIsActive(validator.isOnline)
+                .setReputationScore(95.0) // Dummy value as it's not in ValidatorResponse
+                .build();
+    }
+
+    private Timestamp toTimestamp(Instant instant) {
+        if (instant == null) return Timestamp.getDefaultInstance();
+        return Timestamp.newBuilder()
+                .setSeconds(instant.getEpochSecond())
+                .setNanos(instant.getNano())
+                .build();
+    }
+}

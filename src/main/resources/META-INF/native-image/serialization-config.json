@@ -1,0 +1,170 @@
+[
+  {
+    "name": "io.aurigraph.v11.consensus.ConsensusModels$LeaderElectionMessage",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.v11.consensus.ConsensusModels$VoteRequest",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.v11.consensus.ConsensusModels$VoteResponse",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.v11.consensus.ConsensusModels$HeartbeatMessage",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.v11.consensus.ConsensusModels$AppendEntriesRequest",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.v11.consensus.ConsensusModels$AppendEntriesResponse",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.v11.crypto.QuantumCryptoService$KeyPair",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.v11.crypto.KyberKeyManager$KyberKeyPair",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.v11.crypto.DilithiumSignatureService$DilithiumSignature",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.v11.transaction.TransactionEngineV2$TransactionBatch",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.v11.transaction.TransactionEngineV2$Transaction",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.v11.ai.AIOptimizationEvent",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.v11.ai.PredictiveRoutingEngine$RoutingDecision",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.v11.ai.MLLoadBalancer$LoadBalanceDecision",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.v11.ai.AdaptiveBatchProcessor$BatchConfiguration",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.v11.grpc.ConnectionPoolManager$ConnectionMetrics",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.v11.grpc.LoadBalancerService$LoadBalanceRequest",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.v11.hms.HMSIntegrationService$TokenizationRequest",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.v11.hms.HMSIntegrationService$TokenizationResponse",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.bridge.CrossChainBridgeService$BridgeTransaction",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.bridge.AtomicSwapManager$SwapRequest",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.bridge.MultiSigWalletService$MultiSigTransaction",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.v11.network.P2PNetworkService$NetworkMessage",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.v11.MemoryMappedTransactionPool$PoolTransaction",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "io.aurigraph.v11.LockFreeTransactionProcessor$ProcessingResult",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "java.util.concurrent.CompletableFuture",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "java.util.concurrent.ConcurrentHashMap",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "java.util.concurrent.atomic.AtomicLong",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "java.util.concurrent.atomic.AtomicInteger",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "java.util.ArrayList",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "java.util.HashMap",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "java.util.LinkedList",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "java.time.Instant",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "java.time.LocalDateTime",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "java.math.BigInteger",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "java.math.BigDecimal",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "org.bouncycastle.pqc.crypto.crystals.kyber.KyberPublicKeyParameters",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "org.bouncycastle.pqc.crypto.crystals.kyber.KyberPrivateKeyParameters",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "org.bouncycastle.pqc.crypto.crystals.dilithium.DilithiumPublicKeyParameters",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "org.bouncycastle.pqc.crypto.crystals.dilithium.DilithiumPrivateKeyParameters",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "org.bouncycastle.pqc.crypto.sphincsplus.SPHINCSPlusPublicKeyParameters",
+    "serialMethods": ["writeObject", "readObject"]
+  },
+  {
+    "name": "org.bouncycastle.pqc.crypto.sphincsplus.SPHINCSPlusPrivateKeyParameters",
+    "serialMethods": ["writeObject", "readObject"]
+  }
+]

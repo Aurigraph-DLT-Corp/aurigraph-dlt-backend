@@ -1,0 +1,497 @@
+{
+  "dashboard": {
+    "title": "Aurigraph V11 - Security Monitoring",
+    "tags": ["aurigraph", "v11", "security", "quantum"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "10s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "type": "stat",
+        "title": "Security Status",
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "aurigraph_security_status",
+            "legendFormat": "Status"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "none",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {
+                "value": 1,
+                "text": "SECURE",
+                "color": "green"
+              },
+              {
+                "value": 0,
+                "text": "ALERT",
+                "color": "red"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": 2,
+        "type": "stat",
+        "title": "Security Incidents (24h)",
+        "gridPos": {
+          "x": 6,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "sum(increase(aurigraph_security_incidents_total[24h]))",
+            "legendFormat": "Incidents"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "value": 0,
+                  "color": "green"
+                },
+                {
+                  "value": 1,
+                  "color": "yellow"
+                },
+                {
+                  "value": 10,
+                  "color": "red"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "type": "stat",
+        "title": "Failed Authentication Attempts (1h)",
+        "gridPos": {
+          "x": 12,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "sum(increase(aurigraph_auth_failures_total[1h]))",
+            "legendFormat": "Failed Auth"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "value": 0,
+                  "color": "green"
+                },
+                {
+                  "value": 10,
+                  "color": "yellow"
+                },
+                {
+                  "value": 50,
+                  "color": "red"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "type": "stat",
+        "title": "Crypto Verification Failures (5m)",
+        "gridPos": {
+          "x": 18,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "sum(increase(aurigraph_crypto_signature_verification_failures_total[5m]))",
+            "legendFormat": "Failures"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "value": 0,
+                  "color": "green"
+                },
+                {
+                  "value": 1,
+                  "color": "yellow"
+                },
+                {
+                  "value": 5,
+                  "color": "red"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "type": "graph",
+        "title": "Authentication Events",
+        "gridPos": {
+          "x": 0,
+          "y": 4,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "rate(aurigraph_auth_success_total[5m])",
+            "legendFormat": "Successful Auth"
+          },
+          {
+            "expr": "rate(aurigraph_auth_failures_total[5m])",
+            "legendFormat": "Failed Auth"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ops",
+            "label": "Events/sec"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "type": "graph",
+        "title": "Quantum Cryptographic Operations",
+        "gridPos": {
+          "x": 12,
+          "y": 4,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "rate(aurigraph_crypto_signature_generated_total[5m])",
+            "legendFormat": "Signatures Generated"
+          },
+          {
+            "expr": "rate(aurigraph_crypto_signature_verified_total[5m])",
+            "legendFormat": "Signatures Verified"
+          },
+          {
+            "expr": "rate(aurigraph_crypto_key_generated_total[5m])",
+            "legendFormat": "Keys Generated"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ops",
+            "label": "Operations/sec"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "type": "graph",
+        "title": "Signature Verification Success Rate",
+        "gridPos": {
+          "x": 0,
+          "y": 12,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "(rate(aurigraph_crypto_signature_verified_total[5m]) / (rate(aurigraph_crypto_signature_verified_total[5m]) + rate(aurigraph_crypto_signature_verification_failures_total[5m]))) * 100",
+            "legendFormat": "Success Rate %"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "percent",
+            "label": "Success %",
+            "min": 0,
+            "max": 100
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "type": "graph",
+        "title": "Invalid Transaction Detection",
+        "gridPos": {
+          "x": 12,
+          "y": 12,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "rate(aurigraph_transactions_invalid_total[5m])",
+            "legendFormat": "Invalid Transactions"
+          },
+          {
+            "expr": "(rate(aurigraph_transactions_invalid_total[5m]) / rate(aurigraph_transactions_total[5m])) * 100",
+            "legendFormat": "Invalid Rate %"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ops",
+            "label": "Invalid/sec"
+          },
+          {
+            "format": "percent",
+            "label": "Rate %"
+          }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [5],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": ["B", "5m", "now"]
+              },
+              "reducer": {
+                "params": [],
+                "type": "avg"
+              },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "1m",
+          "handler": 1,
+          "name": "High Invalid Transaction Rate - Possible Attack",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 9,
+        "type": "graph",
+        "title": "API Rate Limiting Events",
+        "gridPos": {
+          "x": 0,
+          "y": 20,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "rate(aurigraph_api_requests_total[5m])",
+            "legendFormat": "Total Requests"
+          },
+          {
+            "expr": "rate(aurigraph_api_rate_limited_total[5m])",
+            "legendFormat": "Rate Limited"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ops",
+            "label": "Requests/sec"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "type": "graph",
+        "title": "Suspicious Activity Detection",
+        "gridPos": {
+          "x": 12,
+          "y": 20,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "rate(aurigraph_security_suspicious_activity_total[5m])",
+            "legendFormat": "{{type}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ops",
+            "label": "Events/sec"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "type": "heatmap",
+        "title": "Cryptographic Operation Latency Heatmap",
+        "gridPos": {
+          "x": 0,
+          "y": 28,
+          "w": 24,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(aurigraph_crypto_operation_duration_seconds_bucket[5m])) by (le)",
+            "format": "heatmap",
+            "legendFormat": "{{le}}"
+          }
+        ],
+        "dataFormat": "tsbuckets"
+      },
+      {
+        "id": 12,
+        "type": "table",
+        "title": "Recent Security Events",
+        "gridPos": {
+          "x": 0,
+          "y": 36,
+          "w": 24,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "aurigraph_security_event_log",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "__name__": true
+              },
+              "indexByName": {
+                "timestamp": 0,
+                "event_type": 1,
+                "severity": 2,
+                "source": 3,
+                "description": 4
+              },
+              "renameByName": {
+                "timestamp": "Timestamp",
+                "event_type": "Event Type",
+                "severity": "Severity",
+                "source": "Source",
+                "description": "Description"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 13,
+        "type": "graph",
+        "title": "TLS Certificate Validity",
+        "gridPos": {
+          "x": 0,
+          "y": 44,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "(x509_cert_not_after - time()) / 86400",
+            "legendFormat": "{{subject}} - Days until expiry"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "short",
+            "label": "Days"
+          }
+        ]
+      },
+      {
+        "id": 14,
+        "type": "graph",
+        "title": "Access Control Violations",
+        "gridPos": {
+          "x": 12,
+          "y": 44,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "rate(aurigraph_access_denied_total[5m])",
+            "legendFormat": "{{resource}} - {{user}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ops",
+            "label": "Violations/sec"
+          }
+        ]
+      }
+    ]
+  },
+  "overwrite": true
+}

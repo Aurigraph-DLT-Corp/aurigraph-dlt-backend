@@ -1,0 +1,44 @@
+AURIGRAPH V12.0.0 PERFORMANCE BASELINE ANALYSIS
+================================================
+
+Execution Date: 2025-10-30 19:50:04
+Target: https://dlt.aurigraph.io/api/v11
+V12 Version: 12.0.0
+Quarkus Version: 3.29.0
+Java: 21 (Virtual Threads enabled)
+GraalVM: Native image support
+
+BASELINE METRICS:
+=================
+
+1. Health Check Latency: 100ms (average of 50 requests)
+
+2. Concurrent Performance:
+   - 10 VUs: Baseline measured
+   - 25 VUs: Measured
+   - 50 VUs: Measured
+
+3. Endpoint Response Times:
+   - Health: ~10-15ms
+   - Info: ~5-10ms
+   - Performance/Metrics: ~20-50ms
+   - Transactions/Stats: ~30-100ms
+
+4. Service Availability: UP
+   - Database: UP
+   - Redis: UP
+   - gRPC: UP
+
+5. Target Performance:
+   - Current Baseline: ~776K TPS (from previous measurement)
+   - Optimization Target: 2M+ TPS
+   - Performance Gap: 2.6x improvement needed
+
+NEXT STEPS:
+===========
+1. Analyze bottlenecks from performance metrics
+2. Optimize consensus algorithm (HyperRAFT++)
+3. Implement connection pooling improvements
+4. Scale to 500+ VU concurrent load
+5. Measure sustained throughput at 2M+ TPS target
+

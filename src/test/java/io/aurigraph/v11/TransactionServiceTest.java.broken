@@ -1,0 +1,679 @@
+package io.aurigraph.v11;
+
+import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.InjectMock;
+import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.helpers.test.UniAssertSubscriber;
+import jakarta.inject.Inject;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.mockito.Mockito;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.IntStream;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+/**
+ * Comprehensive test suite for TransactionService
+ * Target: 95%+ line coverage, 90%+ function coverage
+ *
+ * Test Categories:
+ * 1. Single Transaction Processing
+ * 2. Batch Processing (reactive and parallel)
+ * 3. Ultra-High-Throughput Processing (2M+ TPS)
+ * 4. ML-Based Optimization
+ * 5. Performance Metrics
+ * 6. Error Handling and Edge Cases
+ * 7. Concurrent Access and Thread Safety
+ * 8. Memory Management and Cache Eviction
+ */
+@QuarkusTest
+@DisplayName("TransactionService Comprehensive Test Suite")
+class TransactionServiceTest {
+
+    @Inject
+    TransactionService transactionService;
+
+    @InjectMock
+    io.aurigraph.v11.ai.MLLoadBalancer mlLoadBalancer;
+
+    @InjectMock
+    io.aurigraph.v11.ai.TransactionScoringModel transactionScoringModel;
+
+    @InjectMock
+    io.aurigraph.v11.ai.MLMetricsService mlMetricsService;
+
+    @InjectMock
+    io.aurigraph.v11.ai.OnlineLearningService onlineLearningService;
+
+    @InjectMock
+    io.aurigraph.v11.performance.XXHashService xxHashService;
+
+    @BeforeEach
+    void setUp() {
+        // Reset mocks before each test
+        Mockito.reset(mlLoadBalancer, transactionScoringModel, mlMetricsService,
+                     onlineLearningService, xxHashService);
+    }
+
+    // ==================== NESTED TEST CLASSES ====================
+
+    @Nested
+    @DisplayName("Single Transaction Processing Tests")
+    class SingleTransactionTests {
+
+        @Test
+        @DisplayName("Should process single transaction successfully")
+        void testProcessSingleTransaction() {
+            // Given
+            String txId = "tx-001";
+            double amount = 100.0;
+
+            // When
+            String hash = transactionService.processTransaction(txId, amount);
+
+            // Then
+            assertNotNull(hash, "Transaction hash should not be null");
+            assertEquals(64, hash.length(), "Hash should be 64 characters (SHA-256)");
+
+            // Verify transaction is stored
+            TransactionService.Transaction stored = transactionService.getTransaction(txId);
+            assertNotNull(stored, "Transaction should be stored");
+            assertEquals(txId, stored.id());
+            assertEquals(amount, stored.amount());
+            assertEquals("PENDING", stored.status());
+        }
+
+        @Test
+        @DisplayName("Should process transaction with reactive API")
+        void testProcessTransactionReactive() {
+            // Given
+            String txId = "tx-reactive-001";
+            double amount = 250.0;
+
+            // When
+            Uni<String> hashUni = transactionService.processTransactionReactive(txId, amount);
+
+            // Then
+            String hash = hashUni.subscribe()
+                .withSubscriber(UniAssertSubscriber.create())
+                .awaitItem()
+                .getItem();
+
+            assertNotNull(hash);
+            assertEquals(64, hash.length());
+        }
+
+        @Test
+        @DisplayName("Should generate unique hashes for different transactions")
+        void testUniqueHashes() {
+            // Given
+            String txId1 = "tx-001";
+            String txId2 = "tx-002";
+
+            // When
+            String hash1 = transactionService.processTransaction(txId1, 100.0);
+            String hash2 = transactionService.processTransaction(txId2, 100.0);
+
+            // Then
+            assertNotEquals(hash1, hash2, "Different transactions should have different hashes");
+        }
+
+        @Test
+        @DisplayName("Should handle large transaction amounts")
+        void testLargeAmounts() {
+            // Given
+            String txId = "tx-large-001";
+            double largeAmount = 1_000_000_000.0;
+
+            // When
+            String hash = transactionService.processTransaction(txId, largeAmount);
+
+            // Then
+            assertNotNull(hash);
+            TransactionService.Transaction tx = transactionService.getTransaction(txId);
+            assertEquals(largeAmount, tx.amount());
+        }
+
+        @Test
+        @DisplayName("Should handle zero amount transactions")
+        void testZeroAmount() {
+            // Given
+            String txId = "tx-zero-001";
+            double zeroAmount = 0.0;
+
+            // When
+            String hash = transactionService.processTransaction(txId, zeroAmount);
+
+            // Then
+            assertNotNull(hash);
+            TransactionService.Transaction tx = transactionService.getTransaction(txId);
+            assertEquals(zeroAmount, tx.amount());
+        }
+    }
+
+    @Nested
+    @DisplayName("Batch Processing Tests")
+    class BatchProcessingTests {
+
+        @Test
+        @DisplayName("Should process small batch reactively")
+        void testSmallBatchReactive() {
+            // Given
+            List<TransactionService.TransactionRequest> requests = IntStream.range(0, 10)
+                .mapToObj(i -> new TransactionService.TransactionRequest("tx-batch-" + i, 100.0 + i))
+                .toList();
+
+            // When
+            List<String> hashes = transactionService.batchProcessTransactions(requests)
+                .collect().asList()
+                .await().indefinitely();
+
+            // Then
+            assertEquals(10, hashes.size(), "Should process all transactions");
+            hashes.forEach(hash -> {
+                assertNotNull(hash);
+                assertEquals(64, hash.length());
+            });
+        }
+
+        @Test
+        @DisplayName("Should process medium batch in parallel")
+        void testMediumBatchParallel() throws ExecutionException, InterruptedException {
+            // Given
+            List<TransactionService.TransactionRequest> requests = IntStream.range(0, 1000)
+                .mapToObj(i -> new TransactionService.TransactionRequest("tx-parallel-" + i, 100.0 + i))
+                .toList();
+
+            // When
+            CompletableFuture<List<String>> future = transactionService.batchProcessParallel(requests);
+            List<String> hashes = future.get();
+
+            // Then
+            assertEquals(1000, hashes.size(), "Should process all 1000 transactions");
+
+            // Verify all transactions are stored
+            long storedCount = IntStream.range(0, 1000)
+                .mapToObj(i -> transactionService.getTransaction("tx-parallel-" + i))
+                .filter(tx -> tx != null)
+                .count();
+
+            assertTrue(storedCount >= 900, "At least 90% of transactions should be stored");
+        }
+
+        @Test
+        @DisplayName("Should handle empty batch")
+        void testEmptyBatch() throws ExecutionException, InterruptedException {
+            // Given
+            List<TransactionService.TransactionRequest> emptyRequests = List.of();
+
+            // When
+            CompletableFuture<List<String>> future = transactionService.batchProcessParallel(emptyRequests);
+            List<String> hashes = future.get();
+
+            // Then
+            assertTrue(hashes.isEmpty(), "Empty batch should return empty list");
+        }
+
+        @Test
+        @DisplayName("Should process large batch with adaptive sizing")
+        void testLargeBatchAdaptive() throws ExecutionException, InterruptedException {
+            // Given
+            int batchSize = 10000;
+            List<TransactionService.TransactionRequest> requests = IntStream.range(0, batchSize)
+                .mapToObj(i -> new TransactionService.TransactionRequest("tx-adaptive-" + i, 100.0 + i))
+                .toList();
+
+            // When
+            long startTime = System.nanoTime();
+            CompletableFuture<TransactionService.BatchProcessingResult> future =
+                transactionService.processAdaptiveBatch(requests);
+            TransactionService.BatchProcessingResult result = future.get();
+            long duration = System.nanoTime() - startTime;
+
+            // Then
+            assertNotNull(result);
+            assertEquals(batchSize, result.results().size(), "Should process all transactions");
+            assertTrue(result.achievedTPS() > 0, "TPS should be positive");
+            assertTrue(result.durationMs() > 0, "Duration should be positive");
+
+            System.out.printf("Adaptive Batch: %d txns, %.2f ms, %.0f TPS, %s%n",
+                batchSize, result.durationMs(), result.achievedTPS(), result.getPerformanceStatus());
+        }
+    }
+
+    @Nested
+    @DisplayName("Ultra-High-Throughput Tests (2M+ TPS)")
+    class UltraHighThroughputTests {
+
+        @Test
+        @DisplayName("Should achieve high TPS with ultra-scale batch")
+        void testUltraScaleBatch() throws ExecutionException, InterruptedException {
+            // Given
+            int batchSize = 50000;
+            List<TransactionService.TransactionRequest> requests = IntStream.range(0, batchSize)
+                .mapToObj(i -> new TransactionService.TransactionRequest("tx-ultra-" + i, 100.0 + i))
+                .toList();
+
+            // When
+            long startTime = System.nanoTime();
+            CompletableFuture<List<String>> future = transactionService.processUltraScaleBatch(requests);
+            List<String> hashes = future.get();
+            long duration = System.nanoTime() - startTime;
+
+            // Then
+            assertEquals(batchSize, hashes.size());
+
+            double achievedTPS = (double) batchSize * 1_000_000_000.0 / duration;
+            System.out.printf("Ultra-Scale Batch: %d txns, %.2f ms, %.0f TPS%n",
+                batchSize, duration / 1_000_000.0, achievedTPS);
+
+            assertTrue(achievedTPS > 100_000, "Should achieve > 100K TPS");
+        }
+
+        @Test
+        @DisplayName("Should handle ultra-high-throughput processing with ML optimization")
+        void testUltraHighThroughputWithML() throws ExecutionException, InterruptedException {
+            // Given
+            int batchSize = 25000;
+            List<TransactionService.TransactionRequest> requests = IntStream.range(0, batchSize)
+                .mapToObj(i -> new TransactionService.TransactionRequest("tx-ml-" + i, 100.0 + i))
+                .toList();
+
+            // Mock ML services
+            when(mlLoadBalancer.assignShard(any()))
+                .thenReturn(Uni.createFrom().item(new io.aurigraph.v11.ai.MLLoadBalancer.ShardAssignment(0, 0.95, List.of())));
+
+            // When
+            CompletableFuture<List<String>> future =
+                transactionService.processUltraHighThroughputBatch(requests);
+            List<String> hashes = future.get();
+
+            // Then
+            assertEquals(batchSize, hashes.size());
+
+            // Verify ML services were called (if AI optimization is enabled)
+            // Note: May not be called for small batches
+        }
+
+        @Test
+        @DisplayName("Should process SIMD-optimized batch")
+        void testSIMDOptimizedBatch() {
+            // Given
+            int batchSize = 5000;
+            List<TransactionService.TransactionRequest> requests = IntStream.range(0, batchSize)
+                .mapToObj(i -> new TransactionService.TransactionRequest("tx-simd-" + i, 100.0 + i))
+                .toList();
+
+            // When
+            List<String> hashes = transactionService.processSIMDOptimizedBatch(requests)
+                .collect().asList()
+                .await().indefinitely();
+
+            // Then
+            assertEquals(batchSize, hashes.size());
+        }
+    }
+
+    @Nested
+    @DisplayName("Performance Metrics Tests")
+    class PerformanceMetricsTests {
+
+        @Test
+        @DisplayName("Should track transaction count")
+        void testTransactionCount() {
+            // Given
+            long initialCount = transactionService.getTransactionCount();
+
+            // When
+            transactionService.processTransaction("tx-count-1", 100.0);
+            transactionService.processTransaction("tx-count-2", 200.0);
+            transactionService.processTransaction("tx-count-3", 300.0);
+
+            // Then
+            long finalCount = transactionService.getTransactionCount();
+            assertTrue(finalCount >= initialCount + 3, "Count should increase by at least 3");
+        }
+
+        @Test
+        @DisplayName("Should retrieve processing statistics")
+        void testGetStats() {
+            // Given
+            transactionService.processTransaction("tx-stats-1", 100.0);
+
+            // When
+            TransactionService.EnhancedProcessingStats stats = transactionService.getStats();
+
+            // Then
+            assertNotNull(stats);
+            assertTrue(stats.totalProcessed() > 0, "Total processed should be positive");
+            assertTrue(stats.availableProcessors() > 0, "Should have processors");
+            assertTrue(stats.shardCount() > 0, "Should have shards");
+            assertTrue(stats.memoryUsed() > 0, "Memory used should be positive");
+
+            // Check enhanced metrics
+            assertTrue(stats.throughputTarget() > 0, "Throughput target should be set");
+            assertNotNull(stats.getPerformanceGrade());
+        }
+
+        @Test
+        @DisplayName("Should calculate throughput efficiency")
+        void testThroughputEfficiency() {
+            // When
+            TransactionService.EnhancedProcessingStats stats = transactionService.getStats();
+
+            // Then
+            double efficiency = stats.getThroughputEfficiency();
+            assertTrue(efficiency >= 0.0 && efficiency <= 1.0,
+                "Efficiency should be between 0 and 1");
+        }
+
+        @Test
+        @DisplayName("Should track stored transactions")
+        void testStoredTransactions() {
+            // Given
+            long initialStored = transactionService.getTotalStoredTransactions();
+
+            // When
+            IntStream.range(0, 50).forEach(i ->
+                transactionService.processTransaction("tx-stored-" + i, 100.0 + i)
+            );
+
+            // Then
+            long finalStored = transactionService.getTotalStoredTransactions();
+            assertTrue(finalStored > initialStored, "Stored count should increase");
+        }
+    }
+
+    @Nested
+    @DisplayName("Error Handling and Edge Cases")
+    class ErrorHandlingTests {
+
+        @Test
+        @DisplayName("Should handle null transaction ID gracefully")
+        void testNullTransactionId() {
+            // When/Then - should not throw exception
+            assertDoesNotThrow(() -> {
+                String hash = transactionService.processTransaction(null, 100.0);
+                // May return a hash or handle gracefully
+            });
+        }
+
+        @Test
+        @DisplayName("Should handle negative amounts")
+        void testNegativeAmount() {
+            // Given
+            String txId = "tx-negative-001";
+            double negativeAmount = -100.0;
+
+            // When/Then - should process (business logic may validate separately)
+            assertDoesNotThrow(() -> {
+                String hash = transactionService.processTransaction(txId, negativeAmount);
+                assertNotNull(hash);
+            });
+        }
+
+        @Test
+        @DisplayName("Should handle duplicate transaction IDs")
+        void testDuplicateTransactionIds() {
+            // Given
+            String txId = "tx-duplicate-001";
+
+            // When
+            String hash1 = transactionService.processTransaction(txId, 100.0);
+            String hash2 = transactionService.processTransaction(txId, 200.0);
+
+            // Then - second transaction should overwrite first
+            TransactionService.Transaction tx = transactionService.getTransaction(txId);
+            assertNotNull(tx);
+            // Either amount could be valid depending on timing
+        }
+
+        @Test
+        @DisplayName("Should retrieve non-existent transaction as null")
+        void testGetNonExistentTransaction() {
+            // When
+            TransactionService.Transaction tx = transactionService.getTransaction("non-existent-tx");
+
+            // Then
+            assertNull(tx, "Non-existent transaction should return null");
+        }
+
+        @Test
+        @DisplayName("Should handle very long transaction IDs")
+        void testLongTransactionId() {
+            // Given
+            String longId = "tx-" + "a".repeat(1000);
+
+            // When/Then
+            assertDoesNotThrow(() -> {
+                String hash = transactionService.processTransaction(longId, 100.0);
+                assertNotNull(hash);
+            });
+        }
+    }
+
+    @Nested
+    @DisplayName("Concurrent Access and Thread Safety Tests")
+    class ConcurrencyTests {
+
+        @Test
+        @DisplayName("Should handle concurrent single transactions")
+        void testConcurrentSingleTransactions() throws InterruptedException {
+            // Given
+            int threadCount = 100;
+            List<Thread> threads = new ArrayList<>();
+            List<String> hashes = new ArrayList<>();
+
+            // When
+            for (int i = 0; i < threadCount; i++) {
+                final int index = i;
+                Thread thread = new Thread(() -> {
+                    String hash = transactionService.processTransaction("tx-concurrent-" + index, 100.0 + index);
+                    synchronized (hashes) {
+                        hashes.add(hash);
+                    }
+                });
+                threads.add(thread);
+                thread.start();
+            }
+
+            // Wait for all threads
+            for (Thread thread : threads) {
+                thread.join();
+            }
+
+            // Then
+            assertEquals(threadCount, hashes.size(), "All threads should complete");
+            hashes.forEach(hash -> {
+                assertNotNull(hash);
+                assertEquals(64, hash.length());
+            });
+        }
+
+        @Test
+        @DisplayName("Should handle concurrent batch processing")
+        void testConcurrentBatchProcessing() throws ExecutionException, InterruptedException {
+            // Given
+            int batchCount = 10;
+            int batchSize = 500;
+            List<CompletableFuture<List<String>>> futures = new ArrayList<>();
+
+            // When
+            for (int i = 0; i < batchCount; i++) {
+                final int batchIndex = i;
+                List<TransactionService.TransactionRequest> requests = IntStream.range(0, batchSize)
+                    .mapToObj(j -> new TransactionService.TransactionRequest(
+                        "tx-batch-" + batchIndex + "-" + j,
+                        100.0 + j
+                    ))
+                    .toList();
+
+                futures.add(transactionService.batchProcessParallel(requests));
+            }
+
+            // Wait for all batches
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
+
+            // Then
+            for (CompletableFuture<List<String>> future : futures) {
+                List<String> hashes = future.get();
+                assertEquals(batchSize, hashes.size());
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("ML Optimization Integration Tests")
+    class MLOptimizationTests {
+
+        @Test
+        @DisplayName("Should use ML load balancer for shard assignment")
+        void testMLLoadBalancer() {
+            // Given
+            when(mlLoadBalancer.assignShard(any()))
+                .thenReturn(Uni.createFrom().item(
+                    new io.aurigraph.v11.ai.MLLoadBalancer.ShardAssignment(5, 0.95, List.of())
+                ));
+
+            // When
+            transactionService.processTransaction("tx-ml-001", 100.0);
+
+            // Then - ML load balancer may or may not be called depending on configuration
+            // This test verifies the integration is in place
+        }
+
+        @Test
+        @DisplayName("Should fall back to hash-based sharding on ML failure")
+        void testMLFallback() {
+            // Given
+            when(mlLoadBalancer.assignShard(any()))
+                .thenReturn(Uni.createFrom().failure(new RuntimeException("ML service unavailable")));
+
+            // When/Then - should not fail
+            assertDoesNotThrow(() -> {
+                String hash = transactionService.processTransaction("tx-ml-fallback-001", 100.0);
+                assertNotNull(hash);
+            });
+        }
+    }
+
+    @Nested
+    @DisplayName("Memory Management Tests")
+    class MemoryManagementTests {
+
+        @Test
+        @DisplayName("Should handle large number of transactions without OOM")
+        void testLargeVolumeTransactions() {
+            // Given
+            int largeVolume = 10000;
+
+            // When/Then - should not throw OutOfMemoryError
+            assertDoesNotThrow(() -> {
+                for (int i = 0; i < largeVolume; i++) {
+                    transactionService.processTransaction("tx-volume-" + i, 100.0 + i);
+                }
+            });
+
+            // Verify some transactions are stored (may not be all due to eviction)
+            long stored = transactionService.getTotalStoredTransactions();
+            assertTrue(stored > 0, "Some transactions should be stored");
+        }
+
+        @Test
+        @DisplayName("Should report memory usage in stats")
+        void testMemoryUsageReporting() {
+            // When
+            TransactionService.EnhancedProcessingStats stats = transactionService.getStats();
+
+            // Then
+            assertTrue(stats.memoryUsed() > 0, "Memory usage should be reported");
+            assertTrue(stats.memoryUsed() < Runtime.getRuntime().maxMemory(),
+                "Memory used should be less than max memory");
+        }
+    }
+
+    @Nested
+    @DisplayName("Integration Tests")
+    class IntegrationTests {
+
+        @Test
+        @DisplayName("Should complete full transaction lifecycle")
+        void testFullTransactionLifecycle() {
+            // Given
+            String txId = "tx-lifecycle-001";
+            double amount = 500.0;
+
+            // When
+            // 1. Process transaction
+            String hash = transactionService.processTransaction(txId, amount);
+            assertNotNull(hash);
+
+            // 2. Retrieve transaction
+            TransactionService.Transaction tx = transactionService.getTransaction(txId);
+            assertNotNull(tx);
+            assertEquals(txId, tx.id());
+            assertEquals(amount, tx.amount());
+            assertEquals(hash, tx.hash());
+            assertEquals("PENDING", tx.status());
+
+            // 3. Verify metrics updated
+            assertTrue(transactionService.getTransactionCount() > 0);
+            assertTrue(transactionService.getTotalStoredTransactions() > 0);
+        }
+
+        @Test
+        @DisplayName("Should maintain consistency under mixed workload")
+        void testMixedWorkload() throws ExecutionException, InterruptedException {
+            // Given
+            List<CompletableFuture<?>> futures = new ArrayList<>();
+
+            // When - mix single and batch transactions
+            // Single transactions
+            for (int i = 0; i < 50; i++) {
+                final int index = i;
+                futures.add(CompletableFuture.runAsync(() ->
+                    transactionService.processTransaction("tx-mixed-single-" + index, 100.0 + index)
+                ));
+            }
+
+            // Batch transactions
+            List<TransactionService.TransactionRequest> batchRequests = IntStream.range(0, 100)
+                .mapToObj(i -> new TransactionService.TransactionRequest("tx-mixed-batch-" + i, 200.0 + i))
+                .toList();
+            futures.add(transactionService.batchProcessParallel(batchRequests));
+
+            // Wait for all
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
+
+            // Then
+            long stored = transactionService.getTotalStoredTransactions();
+            assertTrue(stored > 0, "Transactions should be stored");
+        }
+    }
+
+    // ==================== HELPER ASSERTIONS ====================
+
+    private void assertValidHash(String hash) {
+        assertNotNull(hash, "Hash should not be null");
+        assertTrue(hash.length() == 64 || hash.length() == 16,
+            "Hash should be either 64 chars (SHA-256) or 16 chars (xxHash)");
+    }
+
+    private void assertValidTransaction(TransactionService.Transaction tx, String expectedId) {
+        assertNotNull(tx, "Transaction should not be null");
+        assertEquals(expectedId, tx.id(), "Transaction ID should match");
+        assertTrue(tx.amount() >= 0, "Amount should be non-negative (or business rule allows negative)");
+        assertNotNull(tx.hash(), "Transaction hash should not be null");
+        assertTrue(tx.timestamp() > 0, "Timestamp should be positive");
+        assertNotNull(tx.status(), "Status should not be null");
+    }
+}

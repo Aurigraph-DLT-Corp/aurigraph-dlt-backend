@@ -1,0 +1,105 @@
+package io.aurigraph.grpc.service;
+
+import com.google.protobuf.Timestamp;
+import io.aurigraph.v11.analytics.RealTimeAnalyticsService;
+import io.aurigraph.v11.proto.AggregatedMetrics;
+import io.aurigraph.v11.proto.AggregatedMetricsRequest;
+import io.aurigraph.v11.proto.ClusterMetrics;
+import io.aurigraph.v11.proto.MetricsCommand;
+import io.aurigraph.v11.proto.MetricsRequest;
+import io.aurigraph.v11.proto.MetricsStreamService;
+import io.aurigraph.v11.proto.MetricsSubscription;
+import io.aurigraph.v11.proto.NetworkMetrics;
+import io.aurigraph.v11.proto.PerformanceMetricsUpdate;
+import io.aurigraph.v11.proto.TPSMetrics;
+import io.aurigraph.v11.proto.TimeSeriesRequest;
+import io.aurigraph.v11.proto.TimeSeriesResponse;
+import io.aurigraph.v11.proto.TransactionMetrics;
+import io.quarkus.grpc.GrpcService;
+import io.smallrye.mutiny.Multi;
+import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
+import jakarta.inject.Inject;
+
+import java.time.Duration;
+import java.time.Instant;
+
+@GrpcService
+public class MetricsStreamServiceImpl implements MetricsStreamService {
+
+    @Inject
+    RealTimeAnalyticsService realTimeAnalyticsService;
+
+    @Override
+    public Uni<PerformanceMetricsUpdate> getCurrentMetrics(MetricsRequest request) {
+        return Uni.createFrom().item(createMetricsUpdate());
+    }
+
+    @Override
+    public Uni<AggregatedMetrics> getAggregatedMetrics(AggregatedMetricsRequest request) {
+        return Uni.createFrom().item(createAggregatedMetrics());
+    }
+
+    @Override
+    public Multi<PerformanceMetricsUpdate> streamMetrics(MetricsSubscription request) {
+        return realTimeAnalyticsService.streamMetrics()
+                .map(this::mapToPerformanceMetricsUpdate);
+    }
+
+    @Override
+    public Multi<AggregatedMetrics> streamAggregatedMetrics(MetricsSubscription request) {
+        return Multi.createFrom().ticks().every(Duration.ofMillis(request.getUpdateIntervalMs() > 0 ? request.getUpdateIntervalMs() : 1000))
+                .onItem().transform(tick -> createAggregatedMetrics())
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+    }
+
+    @Override
+    public Uni<TimeSeriesResponse> getTimeSeriesMetrics(TimeSeriesRequest request) {
+        return Uni.createFrom().item(TimeSeriesResponse.newBuilder()
+                .setTotalPoints(0)
+                .build());
+    }
+
+    @Override
+    public Multi<PerformanceMetricsUpdate> interactiveMetrics(Multi<MetricsCommand> request) {
+        return request.onItem().transformToMulti(cmd -> streamMetrics(MetricsSubscription.newBuilder().build()));
+    }
+
+    private PerformanceMetricsUpdate createMetricsUpdate() {
+        RealTimeAnalyticsService.RealTimeMetrics metrics = realTimeAnalyticsService.getCurrentSnapshot();
+        return mapToPerformanceMetricsUpdate(metrics);
+    }
+
+    private PerformanceMetricsUpdate mapToPerformanceMetricsUpdate(RealTimeAnalyticsService.RealTimeMetrics metrics) {
+        return PerformanceMetricsUpdate.newBuilder()
+                .setTimestamp(toTimestamp(metrics.timestamp))
+                .setTransactions(TransactionMetrics.newBuilder()
+                        .setTps(TPSMetrics.newBuilder()
+                                .setCurrent((long) metrics.currentTPS)
+                                .build())
+                        .build())
+                .setNetwork(NetworkMetrics.newBuilder()
+                        .setConnectedPeers(metrics.activeValidators) // Approximation
+                        .build())
+                .build();
+    }
+
+    private AggregatedMetrics createAggregatedMetrics() {
+        RealTimeAnalyticsService.RealTimeMetrics metrics = realTimeAnalyticsService.getCurrentSnapshot();
+        return AggregatedMetrics.newBuilder()
+                .setTimestamp(toTimestamp(Instant.now()))
+                .setCluster(ClusterMetrics.newBuilder()
+                        .setActiveNodes(metrics.activeValidators)
+                        .setTotalTps((long) metrics.currentTPS)
+                        .build())
+                .build();
+    }
+
+    private Timestamp toTimestamp(Instant instant) {
+        if (instant == null) return Timestamp.getDefaultInstance();
+        return Timestamp.newBuilder()
+                .setSeconds(instant.getEpochSecond())
+                .setNanos(instant.getNano())
+                .build();
+    }
+}

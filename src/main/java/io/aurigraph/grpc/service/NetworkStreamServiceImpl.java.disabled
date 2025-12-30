@@ -1,0 +1,196 @@
+package io.aurigraph.grpc.service;
+
+import com.google.protobuf.Timestamp;
+import io.aurigraph.v11.network.NetworkHealthService;
+import io.aurigraph.v11.proto.GeoLocation;
+import io.aurigraph.v11.proto.GeographicDistributionUpdate;
+import io.aurigraph.v11.proto.NetworkCommand;
+import io.aurigraph.v11.proto.NetworkEventStream;
+import io.aurigraph.v11.proto.NetworkHealthUpdate;
+import io.aurigraph.v11.proto.NetworkHistoricalQuery;
+import io.aurigraph.v11.proto.NetworkHistoricalResponse;
+import io.aurigraph.v11.proto.NetworkPerformanceUpdate;
+import io.aurigraph.v11.proto.NetworkStreamService;
+import io.aurigraph.v11.proto.NetworkSubscribeRequest;
+import io.aurigraph.v11.proto.NetworkTopologyUpdate;
+import io.aurigraph.v11.proto.NetworkUnsubscribeRequest;
+import io.aurigraph.v11.proto.NetworkUnsubscribeResponse;
+import io.aurigraph.v11.proto.NodeInfo;
+import io.aurigraph.v11.proto.NodeStatusChangeEvent;
+import io.aurigraph.v11.proto.NodeTopologyInfo;
+import io.aurigraph.v11.proto.PeerConnectedEvent;
+import io.quarkus.grpc.GrpcService;
+import io.smallrye.mutiny.Multi;
+import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
+import jakarta.inject.Inject;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+@GrpcService
+public class NetworkStreamServiceImpl implements NetworkStreamService {
+
+    @Inject
+    NetworkHealthService networkHealthService;
+
+    @Override
+    public Uni<NetworkTopologyUpdate> getNetworkTopology(NetworkSubscribeRequest request) {
+        return Uni.createFrom().item(createTopologyUpdate());
+    }
+
+    @Override
+    public Uni<NetworkHealthUpdate> getNetworkHealth(NetworkSubscribeRequest request) {
+        return Uni.createFrom().item(createHealthUpdate());
+    }
+
+    @Override
+    public Uni<GeographicDistributionUpdate> getGeographicDistribution(NetworkSubscribeRequest request) {
+        return Uni.createFrom().item(createGeographicDistribution());
+    }
+
+    @Override
+    public Multi<NetworkEventStream> streamNetworkEvents(NetworkSubscribeRequest request) {
+        return Multi.createFrom().ticks().every(Duration.ofMillis(request.getUpdateIntervalMs() > 0 ? request.getUpdateIntervalMs() : 3000))
+                .onItem().transform(tick -> {
+                    return NetworkEventStream.newBuilder()
+                            .setTimestamp(toTimestamp(Instant.now()))
+                            .setEventId(UUID.randomUUID().toString())
+                            .setHealth(createHealthUpdate())
+                            .build();
+                })
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+    }
+
+    @Override
+    public Multi<NetworkTopologyUpdate> streamTopologyUpdates(NetworkSubscribeRequest request) {
+        return Multi.createFrom().ticks().every(Duration.ofMillis(request.getUpdateIntervalMs() > 0 ? request.getUpdateIntervalMs() : 5000))
+                .onItem().transform(tick -> createTopologyUpdate())
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+    }
+
+    @Override
+    public Multi<NodeStatusChangeEvent> streamNodeEvents(NetworkSubscribeRequest request) {
+        return Multi.createFrom().empty(); // Placeholder
+    }
+
+    @Override
+    public Multi<PeerConnectedEvent> streamPeerConnections(NetworkSubscribeRequest request) {
+        return Multi.createFrom().empty(); // Placeholder
+    }
+
+    @Override
+    public Multi<NetworkPerformanceUpdate> streamNetworkPerformance(NetworkSubscribeRequest request) {
+        return Multi.createFrom().ticks().every(Duration.ofMillis(request.getUpdateIntervalMs() > 0 ? request.getUpdateIntervalMs() : 1000))
+                .onItem().transform(tick -> {
+                    NetworkHealthService.LiveNetworkMetrics metrics = networkHealthService.getLiveNetworkMetrics();
+                    return NetworkPerformanceUpdate.newBuilder()
+                            .setMessagesPerSecond(metrics.messageRate())
+                            .setTotalBytesSentPerSecond((long) (metrics.bandwidth().outbound() * 1024 * 1024 / 8))
+                            .setTotalBytesReceivedPerSecond((long) (metrics.bandwidth().inbound() * 1024 * 1024 / 8))
+                            .setTimestamp(toTimestamp(Instant.now()))
+                            .build();
+                })
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+    }
+
+    @Override
+    public Multi<NetworkHealthUpdate> streamNetworkHealth(NetworkSubscribeRequest request) {
+        return Multi.createFrom().ticks().every(Duration.ofMillis(request.getUpdateIntervalMs() > 0 ? request.getUpdateIntervalMs() : 3000))
+                .onItem().transform(tick -> createHealthUpdate())
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+    }
+
+    @Override
+    public Multi<NetworkEventStream> interactiveNetworkMonitor(Multi<NetworkCommand> request) {
+        return request.onItem().transformToMulti(cmd -> streamNetworkEvents(NetworkSubscribeRequest.newBuilder().build()));
+    }
+
+    @Override
+    public Uni<NetworkHistoricalResponse> queryHistoricalEvents(NetworkHistoricalQuery request) {
+        return Uni.createFrom().item(NetworkHistoricalResponse.newBuilder()
+                .setTotalEvents(0)
+                .setQueryExecutedAt(toTimestamp(Instant.now()))
+                .build());
+    }
+
+    @Override
+    public Uni<NetworkUnsubscribeResponse> unsubscribe(NetworkUnsubscribeRequest request) {
+        return Uni.createFrom().item(NetworkUnsubscribeResponse.newBuilder()
+                .setSuccess(true)
+                .setMessage("Unsubscribed")
+                .setEndedAt(toTimestamp(Instant.now()))
+                .build());
+    }
+
+    private NetworkTopologyUpdate createTopologyUpdate() {
+        NetworkHealthService.PeerMap peerMap = networkHealthService.getPeerMap();
+        List<NodeTopologyInfo> nodes = peerMap.peers().stream()
+                .map(this::mapToNodeTopologyInfo)
+                .collect(Collectors.toList());
+
+        return NetworkTopologyUpdate.newBuilder()
+                .setTotalNodes(peerMap.totalPeers())
+                .setActiveNodes(peerMap.totalPeers()) // Assuming all are active for now
+                .addAllNodes(nodes)
+                .setTimestamp(toTimestamp(Instant.now()))
+                .build();
+    }
+
+    private NetworkHealthUpdate createHealthUpdate() {
+        NetworkHealthService.NetworkHealth health = networkHealthService.getNetworkHealth();
+        return NetworkHealthUpdate.newBuilder()
+                .setHealthStatus(mapHealthStatus(health.status()))
+                .setHealthScore(health.latencyScore()) // Using latency score as proxy
+                .setReachableNodesCount(health.connectedPeers())
+                .setTimestamp(toTimestamp(Instant.ofEpochMilli(health.lastHealthCheck())))
+                .build();
+    }
+
+    private GeographicDistributionUpdate createGeographicDistribution() {
+        NetworkHealthService.PeerMap peerMap = networkHealthService.getPeerMap();
+        // Simplified implementation
+        return GeographicDistributionUpdate.newBuilder()
+                .setTimestamp(toTimestamp(Instant.now()))
+                .build();
+    }
+
+    private NodeTopologyInfo mapToNodeTopologyInfo(NetworkHealthService.PeerInfo peer) {
+        return NodeTopologyInfo.newBuilder()
+                .setNode(NodeInfo.newBuilder()
+                        .setNodeId(peer.peerId())
+                        .setIpAddress(peer.ipAddress())
+                        .setPort(peer.port())
+                        .setVersion(peer.version())
+                        .build())
+                .setGeoLocation(GeoLocation.newBuilder()
+                        .setLatitude(peer.location().coordinates().latitude())
+                        .setLongitude(peer.location().coordinates().longitude())
+                        .setCity(peer.location().city())
+                        .setCountry(peer.location().country())
+                        .build())
+                .setIsReachable(true)
+                .setAveragePeerLatencyMs(peer.latency())
+                .build();
+    }
+
+    private NetworkHealthUpdate.NetworkHealth mapHealthStatus(NetworkHealthService.NetworkStatus status) {
+        switch (status) {
+            case HEALTHY: return NetworkHealthUpdate.NetworkHealth.HEALTHY;
+            case DEGRADED: return NetworkHealthUpdate.NetworkHealth.DEGRADED;
+            case UNHEALTHY: return NetworkHealthUpdate.NetworkHealth.CRITICAL;
+            default: return NetworkHealthUpdate.NetworkHealth.UNSTABLE;
+        }
+    }
+
+    private Timestamp toTimestamp(Instant instant) {
+        if (instant == null) return Timestamp.getDefaultInstance();
+        return Timestamp.newBuilder()
+                .setSeconds(instant.getEpochSecond())
+                .setNanos(instant.getNano())
+                .build();
+    }
+}

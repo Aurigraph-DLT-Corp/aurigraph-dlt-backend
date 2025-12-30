@@ -1,0 +1,1584 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>io.aurigraph</groupId>
+    <artifactId>aurigraph-v12-standalone</artifactId>
+    <version>12.0.0</version>
+
+    <properties>
+        <compiler-plugin.version>3.14.0</compiler-plugin.version>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
+        <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
+        <quarkus.platform.version>3.29.0</quarkus.platform.version>
+        <skipITs>true</skipITs>
+        <surefire-plugin.version>3.5.3</surefire-plugin.version>
+        <!-- ULTRA-FAST BUILD OPTIMIZATION (Nov 4, 2025) -->
+        <maven.compiler.fork>true</maven.compiler.fork>
+        <maven.compiler.maxmem>2048m</maven.compiler.maxmem>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>${quarkus.platform.group-id}</groupId>
+                <artifactId>${quarkus.platform.artifact-id}</artifactId>
+                <version>${quarkus.platform.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Force newer Groovy version to avoid conflicts -->
+            <dependency>
+                <groupId>org.apache.groovy</groupId>
+                <artifactId>groovy</artifactId>
+                <version>4.0.22</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.groovy</groupId>
+                <artifactId>groovy-xml</artifactId>
+                <version>4.0.22</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- gRPC and Protocol Buffers -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-grpc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-reactive-streams-operators</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.smallrye.reactive</groupId>
+            <artifactId>mutiny</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-health</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-rest-jackson</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-scheduler</artifactId>
+        </dependency>
+        <!-- Caching Infrastructure (requires additional configuration for Caffeine backend) -->
+        <!-- Dependency to be added when Quarkus caching extension is available -->
+        <!-- <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-cache</artifactId>
+        </dependency> -->
+        <!-- MicroProfile Metrics removed - conflicts with Micrometer -->
+        <!-- <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-metrics</artifactId>
+        </dependency> -->
+        <!-- SLF4J logging compatibility -->
+        <dependency>
+            <groupId>org.jboss.slf4j</groupId>
+            <artifactId>slf4j-jboss-logmanager</artifactId>
+        </dependency>
+
+        <!-- JSON Logging for ELK Stack Integration -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-logging-json</artifactId>
+        </dependency>
+
+        <!-- Logstash Encoder for structured logging -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>7.4</version>
+        </dependency>
+
+        <!-- MDC (Mapped Diagnostic Context) support - REMOVED (unavailable dependency) -->
+        <!-- <dependency>
+            <groupId>org.jboss.logmanager</groupId>
+            <artifactId>jboss-logmanager-ext</artifactId>
+            <version>1.1.0.Final</version>
+        </dependency> -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-arc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-rest</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-websockets</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Performance Testing -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-junit5-mockito</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Virtual Threads (Java 21) -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-virtual-threads</artifactId>
+        </dependency>
+        <!-- Netty Epoll for Linux Performance -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-transport-native-epoll</artifactId>
+            <classifier>linux-x86_64</classifier>
+        </dependency>
+        <!-- HTTP/2 and Performance -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-codec-http2</artifactId>
+        </dependency>
+        <!-- gRPC Netty Transport -->
+        <dependency>
+            <groupId>io.grpc</groupId>
+            <artifactId>grpc-netty-shaded</artifactId>
+        </dependency>
+        <!-- Performance Testing Dependencies -->
+        <dependency>
+            <groupId>org.apache.jmeter</groupId>
+            <artifactId>ApacheJMeter_core</artifactId>
+            <version>5.6.3</version>
+            <scope>test</scope>
+            <exclusions>
+                <!-- Exclude old Groovy to resolve RestAssured conflict -->
+                <exclusion>
+                    <groupId>org.codehaus.groovy</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.jmeter</groupId>
+            <artifactId>ApacheJMeter_java</artifactId>
+            <version>5.6.3</version>
+            <scope>test</scope>
+            <exclusions>
+                <!-- Exclude old Groovy to resolve RestAssured conflict -->
+                <exclusion>
+                    <groupId>org.codehaus.groovy</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.github.mweirauch</groupId>
+            <artifactId>micrometer-jvm-extras</artifactId>
+            <version>0.2.2</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.hdrhistogram</groupId>
+            <artifactId>HdrHistogram</artifactId>
+            <version>2.2.2</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Post-Quantum Cryptography -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+            <version>1.78</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-jdk18on</artifactId>
+            <version>1.78</version>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpg-jdk18on</artifactId>
+            <version>1.78</version>
+        </dependency>
+        <!-- PKCS#11 for HSM Integration -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcutil-jdk18on</artifactId>
+            <version>1.78</version>
+        </dependency>
+        <!-- BouncyCastle Post-Quantum Cryptography Provider -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-ext-jdk18on</artifactId>
+            <version>1.78</version>
+        </dependency>
+        <!-- BouncyCastle TLS for DTLS support -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bctls-jdk18on</artifactId>
+            <version>1.78</version>
+        </dependency>
+        <!-- JWT Library for Authentication -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>0.12.3</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>0.12.3</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>0.12.3</version>
+            <scope>runtime</scope>
+        </dependency>
+        <!-- AI/ML Dependencies temporarily commented out to resolve Groovy version conflict -->
+        <!-- TODO: Re-enable after resolving dependency conflicts -->
+        <!--
+        <dependency>
+            <groupId>org.deeplearning4j</groupId>
+            <artifactId>deeplearning4j-core</artifactId>
+            <version>1.0.0-M2.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.deeplearning4j</groupId>
+            <artifactId>deeplearning4j-nn</artifactId>
+            <version>1.0.0-M2.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.nd4j</groupId>
+            <artifactId>nd4j-native-platform</artifactId>
+            <version>1.0.0-M2.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.nd4j</groupId>
+            <artifactId>nd4j-api</artifactId>
+            <version>1.0.0-M2.1</version>
+        </dependency>
+        -->
+        <!-- Apache Commons Math for ML algorithms -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-math3</artifactId>
+            <version>3.6.1</version>
+        </dependency>
+        <!-- Aparapi for future GPU acceleration (CUDA/OpenCL) -->
+        <!-- Note: Currently using CPU-based parallel processing (ForkJoinPool)  -->
+        <!-- Aparapi will be added in Phase 3 when GPU hardware is available -->
+        <!-- ML libraries temporarily commented out to resolve Groovy version conflict -->
+        <!-- TODO: Re-enable after resolving Groovy conflict or upgrade to compatible versions -->
+        <!--
+        <dependency>
+            <groupId>nz.ac.waikato.cms.weka</groupId>
+            <artifactId>weka-stable</artifactId>
+            <version>3.8.6</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.codehaus.groovy</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-mllib_2.13</artifactId>
+            <version>3.5.0</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.codehaus.groovy</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.github.haifengl</groupId>
+            <artifactId>smile-core</artifactId>
+            <version>3.1.1</version>
+        </dependency>
+        -->
+        
+        <!-- Cross-Chain Bridge Dependencies -->
+        <!-- Web3j for Ethereum Integration -->
+        <dependency>
+            <groupId>org.web3j</groupId>
+            <artifactId>core</artifactId>
+            <version>4.12.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.web3j</groupId>
+            <artifactId>crypto</artifactId>
+            <version>4.12.1</version>
+        </dependency>
+        <!-- Solana/Blockchain HTTP Client -->
+        <dependency>
+            <groupId>org.asynchttpclient</groupId>
+            <artifactId>async-http-client</artifactId>
+            <version>2.12.3</version>
+        </dependency>
+        <!-- Bitcoin UTXO SDK -->
+        <dependency>
+            <groupId>org.bitcoinj</groupId>
+            <artifactId>bitcoinj-core</artifactId>
+            <version>0.15.10</version>
+        </dependency>
+        <!-- Cosmos SDK for REST API -->
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+            <version>4.32.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java-util</artifactId>
+            <version>4.32.1</version>
+        </dependency>
+        <!-- For REST client communications, using OkHttp3 + Jackson -->
+        <!-- Substrate/Polkadot REST operations will use OkHttp + Jackson JSON handling -->
+        <!-- OkHttp for HTTP clients -->
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>4.12.0</version>
+        </dependency>
+        <!-- Jackson for JSON processing -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <!-- Jackson Java 8 Time support (java.time.Instant serialization) -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+        <!-- Apache Commons Codec for encoding/decoding -->
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+            <version>1.16.1</version>
+        </dependency>
+        
+        <!-- GraphQL API Support (Story 8) -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-graphql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-graphql-client</artifactId>
+        </dependency>
+
+        <!-- TestContainers for Integration Testing -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Database and Persistence (Priority 3 - Configuration Management) -->
+        <!-- Quarkus JPA/Hibernate -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-hibernate-orm</artifactId>
+        </dependency>
+        <!-- Quarkus JDBC PostgreSQL -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-jdbc-postgresql</artifactId>
+        </dependency>
+        <!-- Quarkus JPA with REST support -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-hibernate-orm-rest-data-panache</artifactId>
+        </dependency>
+        <!-- Flyway for database migrations -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-flyway</artifactId>
+        </dependency>
+
+        <!-- Test Coverage and Reporting -->
+        <dependency>
+            <groupId>org.jacoco</groupId>
+            <artifactId>jacoco-maven-plugin</artifactId>
+            <version>0.8.8</version>
+            <scope>test</scope>
+        </dependency>
+        
+        <!-- AssertJ for fluent assertions -->
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>3.25.3</version>
+            <scope>test</scope>
+        </dependency>
+        
+        <!-- JMH (Java Microbenchmark Harness) for precise performance testing -->
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-core</artifactId>
+            <version>1.37</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-generator-annprocess</artifactId>
+            <version>1.37</version>
+            <scope>test</scope>
+        </dependency>
+        
+        
+        <!-- Disruptor for lock-free ring buffer -->
+        <dependency>
+            <groupId>com.lmax</groupId>
+            <artifactId>disruptor</artifactId>
+            <version>4.0.0</version>
+        </dependency>
+        
+        <!-- Caffeine for high-performance caching -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <version>3.1.8</version>
+        </dependency>
+        
+        <!-- Agrona for low-latency data structures -->
+        <dependency>
+            <groupId>org.agrona</groupId>
+            <artifactId>agrona</artifactId>
+            <version>1.20.0</version>
+        </dependency>
+
+        <!-- JCTools for lock-free concurrent data structures -->
+        <dependency>
+            <groupId>org.jctools</groupId>
+            <artifactId>jctools-core</artifactId>
+            <version>4.0.5</version>
+        </dependency>
+
+        <!-- xxHash for ultra-fast hashing (10M+ TPS optimization) -->
+        <dependency>
+            <groupId>net.openhft</groupId>
+            <artifactId>zero-allocation-hashing</artifactId>
+            <version>0.16</version>
+        </dependency>
+
+        <!-- Missing Dependencies for V11 Features -->
+        
+        <!-- H2 for in-memory testing (no external database required) -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-jdbc-h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- LevelDB for embedded key-value storage (one per node) -->
+        <dependency>
+            <groupId>org.iq80.leveldb</groupId>
+            <artifactId>leveldb</artifactId>
+            <version>0.12</version>
+        </dependency>
+        <dependency>
+            <groupId>org.iq80.leveldb</groupId>
+            <artifactId>leveldb-api</artifactId>
+            <version>0.12</version>
+        </dependency>
+
+        <!-- Lombok for code generation -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>1.18.34</version>
+            <scope>provided</scope>
+        </dependency>
+        
+        <!-- Jakarta Persistence API -->
+        <dependency>
+            <groupId>jakarta.persistence</groupId>
+            <artifactId>jakarta.persistence-api</artifactId>
+        </dependency>
+        
+        <!-- PDF Processing Dependencies for Ricardian Contracts -->
+        <!-- Apache PDFBox for PDF parsing and manipulation -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox-tools</artifactId>
+            <version>3.0.3</version>
+        </dependency>
+        <!-- Apache Tika for document text extraction -->
+        <dependency>
+            <groupId>org.apache.tika</groupId>
+            <artifactId>tika-core</artifactId>
+            <version>2.9.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tika</groupId>
+            <artifactId>tika-parsers-standard-package</artifactId>
+            <version>2.9.2</version>
+        </dependency>
+        <!-- OpenNLP for natural language processing -->
+        <dependency>
+            <groupId>org.apache.opennlp</groupId>
+            <artifactId>opennlp-tools</artifactId>
+            <version>2.3.3</version>
+        </dependency>
+        <!-- Apache Commons Text for text processing -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-text</artifactId>
+            <version>1.12.0</version>
+        </dependency>
+        <!-- ICU4J for Unicode text processing -->
+        <dependency>
+            <groupId>com.ibm.icu</groupId>
+            <artifactId>icu4j</artifactId>
+            <version>75.1</version>
+        </dependency>
+        
+        <!-- Jakarta Transaction API -->
+        <dependency>
+            <groupId>jakarta.transaction</groupId>
+            <artifactId>jakarta.transaction-api</artifactId>
+        </dependency>
+        
+        <!-- Jakarta Bean Validation -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-hibernate-validator</artifactId>
+        </dependency>
+        
+        <!-- Kafka for enterprise messaging -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-kafka-client</artifactId>
+        </dependency>
+        
+        
+        
+        <!-- Jakarta CDI API for annotations -->
+        <dependency>
+            <groupId>jakarta.enterprise</groupId>
+            <artifactId>jakarta.enterprise.cdi-api</artifactId>
+            <version>4.0.1</version>
+        </dependency>
+        
+        <!-- Javax compatibility -->
+        <dependency>
+            <groupId>javax.enterprise</groupId>
+            <artifactId>cdi-api</artifactId>
+            <version>2.0</version>
+        </dependency>
+        
+        <!-- Redis for caching -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-redis-client</artifactId>
+        </dependency>
+        
+        <!-- OpenAPI / Swagger Documentation -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-openapi</artifactId>
+        </dependency>
+        
+        <!-- Rate Limiting and Security -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-jwt</artifactId>
+        </dependency>
+
+        <!-- Elytron Security for BCrypt password hashing -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-elytron-security-common</artifactId>
+        </dependency>
+
+        <!-- Quantum Randomness Beacon Integration -->
+        <!-- Temporarily disabled for V12 build - needs local installation -->
+        <!-- <dependency>
+            <groupId>io.aurigraph</groupId>
+            <artifactId>quantum-randomness-beacon</artifactId>
+            <version>11.0.0</version>
+        </dependency> -->
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>${quarkus.platform.group-id}</groupId>
+                <artifactId>quarkus-maven-plugin</artifactId>
+                <version>${quarkus.platform.version}</version>
+                <extensions>true</extensions>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>build</goal>
+                            <goal>generate-code</goal>
+                            <goal>generate-code-tests</goal>
+                            <goal>native-image-agent</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${compiler-plugin.version}</version>
+                <configuration>
+                    <parameters>true</parameters>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>1.18.34</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+
+            <!-- Maven Enforcer Plugin - Ban old Groovy versions -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.4.1</version>
+                <executions>
+                    <execution>
+                        <id>enforce-banned-dependencies</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <!-- Ban old Groovy versions to resolve RestAssured conflict -->
+                                        <exclude>org.codehaus.groovy:*</exclude>
+                                    </excludes>
+                                    <message>
+                                        Old Groovy (org.codehaus.groovy) is banned. Use org.apache.groovy:groovy:4.0.22 instead.
+                                        This resolves the RestAssured Groovy version conflict.
+                                    </message>
+                                </bannedDependencies>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${surefire-plugin.version}</version>
+                <configuration>
+                    <systemPropertyVariables>
+                        <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
+                        <maven.home>${maven.home}</maven.home>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>${surefire-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <systemPropertyVariables>
+                        <native.image.path>${project.build.directory}/${project.build.finalName}-runner</native.image.path>
+                        <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
+                        <maven.home>${maven.home}</maven.home>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+            
+            <!-- Protocol Buffers Maven Plugin - DISABLED: Using Quarkus gRPC extension instead -->
+            <!-- Quarkus gRPC extension handles proto compilation automatically to avoid duplication -->
+            <!--
+            <plugin>
+                <groupId>org.xolstice.maven.plugins</groupId>
+                <artifactId>protobuf-maven-plugin</artifactId>
+                <version>0.6.1</version>
+                <configuration>
+                    <protocArtifact>com.google.protobuf:protoc:3.24.4:exe:${os.detected.classifier}</protocArtifact>
+                    <pluginId>grpc-java</pluginId>
+                    <pluginArtifact>io.grpc:protoc-gen-grpc-java:1.60.0:exe:${os.detected.classifier}</pluginArtifact>
+                    <protoSourceRoot>src/main/proto</protoSourceRoot>
+                    <outputDirectory>target/generated-sources/protobuf/java</outputDirectory>
+                    <checkProtoPackage>false</checkProtoPackage>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            -->
+
+            <!-- OS Maven Plugin - Detects OS for protoc compilation -->
+            <plugin>
+                <groupId>kr.motd.maven</groupId>
+                <artifactId>os-maven-plugin</artifactId>
+                <version>1.7.1</version>
+                <executions>
+                    <execution>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>detect</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- JaCoCo Code Coverage Plugin - Enhanced for Phase 1 -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.11</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                        <configuration>
+                            <formats>
+                                <format>HTML</format>
+                                <format>XML</format>
+                                <format>CSV</format>
+                            </formats>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>jacoco-check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <!-- Overall Project Coverage - ENHANCED FOR CI/CD -->
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.95</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.90</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+
+                                <!-- Critical Crypto Package -->
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>io.aurigraph.v11.crypto.*</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.98</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.95</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+
+                                <!-- Critical Consensus Package -->
+                                <rule>
+                                    <element>PACKAGE</element>
+                                    <includes>
+                                        <include>io.aurigraph.v11.consensus.*</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.95</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.90</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+
+                                <!-- Sprint 14-20: Parallel Transaction Executor -->
+                                <rule>
+                                    <element>CLASS</element>
+                                    <includes>
+                                        <include>io.aurigraph.v11.parallel.ParallelTransactionExecutor</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.95</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.90</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+
+                                <!-- Sprint 14-20: Ethereum Bridge Service -->
+                                <rule>
+                                    <element>CLASS</element>
+                                    <includes>
+                                        <include>io.aurigraph.v11.bridge.EthereumBridgeService</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.95</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.90</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+
+                                <!-- Sprint 14-20: System Monitoring Service -->
+                                <rule>
+                                    <element>CLASS</element>
+                                    <includes>
+                                        <include>io.aurigraph.v11.monitoring.SystemMonitoringService</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.95</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.90</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+
+                                <!-- Sprint 14-20: Enterprise Portal Service -->
+                                <rule>
+                                    <element>CLASS</element>
+                                    <includes>
+                                        <include>io.aurigraph.v11.portal.EnterprisePortalService</include>
+                                    </includes>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.95</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.90</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                            <excludes>
+                                <!-- Generated code -->
+                                <exclude>**/*_generated/**</exclude>
+                                <exclude>**/generated/**</exclude>
+                                <exclude>**/*_.java</exclude>
+                                <!-- DTOs and models with no logic -->
+                                <exclude>**/models/**/*Record.java</exclude>
+                                <!-- Configuration classes -->
+                                <exclude>**/*Config.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>native</id>
+            <activation>
+                <property>
+                    <name>native</name>
+                </property>
+            </activation>
+            <properties>
+                <skipITs>false</skipITs>
+                <quarkus.native.enabled>true</quarkus.native.enabled>
+                <!-- Optimized Native Image Settings for <1s startup, <100MB binary -->
+                <quarkus.native.container-build>true</quarkus.native.container-build>
+                <quarkus.native.builder-image>quay.io/quarkus/ubi-quarkus-mandrel:24-java21</quarkus.native.builder-image>
+                <quarkus.native.container-runtime>docker</quarkus.native.container-runtime>
+                
+                <!-- Performance Optimization Flags -->
+                <quarkus.native.additional-build-args>
+                    <!-- Memory and GC Optimizations (serial GC for GraalVM native) -->
+                    -H:+UnlockExperimentalVMOptions,
+                    <!-- NOTE: G1GC not supported in native image, using serial GC -->
+                    -H:+UseStringDeduplication,
+                    -H:+OptimizeStringConcat,
+                    
+                    <!-- Startup Time Optimizations -->
+                    -H:+ReportExceptionStackTraces,
+                    -H:+AllowVMInspection,
+                    -H:-SpawnIsolates,
+                    -H:+StaticExecutableWithDynamicLibC,
+                    
+                    <!-- Binary Size Optimizations -->
+                    -H:+RemoveSaturatedTypeFlows,
+                    -H:+ReportUnsupportedElementsAtRuntime,
+                    -H:+AllowIncompleteClasspath,
+                    -H:-UseServiceLoaderFeature,
+                    -H:+PrintClassInitialization,
+                    
+                    <!-- Runtime Initialization for Network Libraries -->
+                    --initialize-at-run-time=io.netty.channel.unix.Socket,
+                    --initialize-at-run-time=io.netty.channel.unix.IovArray,
+                    --initialize-at-run-time=io.netty.channel.unix.Limits,
+                    --initialize-at-run-time=io.grpc.netty.shaded.io.netty.channel.unix.Socket,
+                    --initialize-at-run-time=io.grpc.netty.shaded.io.netty.channel.unix.IovArray,
+                    --initialize-at-run-time=io.grpc.netty.shaded.io.netty.channel.unix.Limits,
+                    
+                    <!-- gRPC Optimizations -->
+                    --initialize-at-run-time=io.grpc.internal.DnsNameResolver,
+                    --initialize-at-run-time=io.grpc.netty.shaded.io.netty.handler.codec.http2.Http2CodecUtil,
+                    --initialize-at-run-time=io.grpc.netty.shaded.io.netty.handler.codec.http2.DefaultHttp2FrameWriter,
+
+                    <!-- ForkJoinPool Initialization for Parallel Processing -->
+                    --initialize-at-run-time=java.util.concurrent.ForkJoinPool,
+                    --initialize-at-run-time=java.util.concurrent.ForkJoinWorkerThread,
+
+                    <!-- Crypto and Security -->
+                    --initialize-at-run-time=org.bouncycastle,
+                    --initialize-at-run-time=java.security.SecureRandom,
+                    
+                    <!-- AI/ML Libraries -->
+                    --initialize-at-run-time=org.deeplearning4j,
+                    --initialize-at-run-time=org.nd4j,
+                    --initialize-at-run-time=com.github.haifengl.smile,
+                    
+                    <!-- Performance Profiling -->
+                    -H:+PrintAnalysisCallTree,
+                    -H:+PrintFeatures,
+                    -H:+VerboseGC,
+                    
+                    <!-- Native Image Heap Settings -->
+                    -H:NativeImageHeapSize=8g,
+                    -H:MaxJavaStackTraceDepth=20
+                </quarkus.native.additional-build-args>
+                
+                <!-- Resource Configuration -->
+                <quarkus.native.resources.includes>*.proto,application*.properties,META-INF/resources/**,META-INF/native-image/**</quarkus.native.resources.includes>
+                
+                <!-- Compression and Optimization -->
+                <quarkus.native.compression.level>10</quarkus.native.compression.level>
+                <quarkus.native.compression.additional-args>--strip-debug</quarkus.native.compression.additional-args>
+            </properties>
+        </profile>
+        
+        <!-- Fast Native Profile for Development -->
+        <profile>
+            <id>native-fast</id>
+            <activation>
+                <property>
+                    <name>native-fast</name>
+                </property>
+            </activation>
+            <properties>
+                <skipITs>false</skipITs>
+                <quarkus.native.enabled>true</quarkus.native.enabled>
+                <quarkus.native.container-build>true</quarkus.native.container-build>
+                <quarkus.native.builder-image>quay.io/quarkus/ubi-quarkus-mandrel:24-java21</quarkus.native.builder-image>
+                <quarkus.native.additional-build-args>
+                    -O1,
+                    --initialize-at-run-time=io.netty,
+                    --initialize-at-run-time=io.grpc,
+
+                    <!-- ForkJoinPool Runtime Initialization - CRITICAL -->
+                    --initialize-at-run-time=java.util.concurrent.ForkJoinPool,
+                    --initialize-at-run-time=java.util.concurrent.ForkJoinPool$Submitter,
+                    --initialize-at-run-time=java.util.concurrent.ForkJoinPool$WorkQueue,
+                    --initialize-at-run-time=java.util.concurrent.ForkJoinWorkerThread,
+                    --initialize-at-run-time=java.util.concurrent.ForkJoinWorkerThread$InnocuousForkJoinWorkerThread,
+                    --initialize-at-run-time=java.util.concurrent.ForkJoinTask,
+                    --initialize-at-run-time=java.util.concurrent.RecursiveTask,
+                    --initialize-at-run-time=java.util.concurrent.RecursiveAction,
+                    --initialize-at-run-time=sun.misc.Unsafe,
+
+                    <!-- GraalVM Options -->
+                    -H:-SpawnIsolates,
+                    -H:+ReportUnsupportedElementsAtRuntime,
+                    -H:+UseSerialGC,
+                    -H:NativeImageHeapSize=8g
+                </quarkus.native.additional-build-args>
+            </properties>
+        </profile>
+        
+        <!-- Ultra-Optimized Production Profile - SPARC Week 1 Enhanced -->
+        <profile>
+            <id>native-ultra</id>
+            <activation>
+                <property>
+                    <name>native-ultra</name>
+                </property>
+            </activation>
+            <properties>
+                <skipITs>false</skipITs>
+                <quarkus.native.enabled>true</quarkus.native.enabled>
+                <quarkus.native.container-build>true</quarkus.native.container-build>
+                <quarkus.native.builder-image>quay.io/quarkus/ubi-quarkus-mandrel:24-java21</quarkus.native.builder-image>
+                <quarkus.native.additional-build-args>
+                    <!-- GraalVM 23.1 Compatible Ultra-Optimized Configuration -->
+                    <!-- Updated Nov 10, 2025 - Fixed for GraalVM 23.1 Compatibility -->
+
+                    <!-- CPU Architecture: Use compatibility for portability -->
+                    -march=compatibility,
+                    -O3,
+                    -H:+UnlockExperimentalVMOptions,
+
+                    <!-- GC: Use default serial GC (optimal for native-image) -->
+                    <!-- G1GC only available on Oracle GraalVM Linux builds -->
+                    -H:+UseStringDeduplication,
+
+                    <!-- Memory Optimizations (GraalVM 23.1 Compatible) -->
+                    -H:+OptimizeStringConcat,
+                    -H:+UseCompressedOops,
+                    -H:+UseCompressedClassPointers,
+
+                    <!-- Startup & Memory Optimizations -->
+                    -H:-SpawnIsolates,
+                    -H:+StaticExecutableWithDynamicLibC,
+                    -H:+AllowIncompleteClasspath,
+                    -H:+RemoveSaturatedTypeFlows,
+                    -H:+ReportUnsupportedElementsAtRuntime,
+
+                    <!-- Runtime Initializations (Network, Crypto, AI/ML) -->
+                    --initialize-at-run-time=io.netty,
+                    --initialize-at-run-time=io.grpc,
+                    --initialize-at-run-time=org.bouncycastle,
+                    --initialize-at-run-time=org.deeplearning4j,
+                    --initialize-at-run-time=org.nd4j,
+                    --initialize-at-run-time=com.github.haifengl.smile,
+                    --initialize-at-run-time=java.security,
+
+                    <!-- Build-time JVM Memory Settings (for compilation process) -->
+                    -J-Xmx16g,
+                    -J-Xms8g
+                </quarkus.native.additional-build-args>
+
+                <!-- SPARC Week 1: Resource Inclusions -->
+                <quarkus.native.resources.includes>*.proto,application*.properties,META-INF/resources/**,META-INF/native-image/**</quarkus.native.resources.includes>
+
+                <!-- SPARC Week 1: Compression -->
+                <quarkus.native.compression.level>10</quarkus.native.compression.level>
+                <quarkus.native.compression.additional-args>--strip-debug</quarkus.native.compression.additional-args>
+            </properties>
+        </profile>
+
+        <!-- Performance Testing Profile -->
+        <profile>
+            <id>performance-test</id>
+            <activation>
+                <property>
+                    <name>performance-test</name>
+                </property>
+            </activation>
+            <properties>
+                <skipITs>false</skipITs>
+                <skipTests>false</skipTests>
+                <!-- Performance test timeout (10 minutes) -->
+                <surefire.timeout>600</surefire.timeout>
+                <!-- Enable performance test suite -->
+                <performance.test.enabled>true</performance.test.enabled>
+            </properties>
+            <build>
+                <plugins>
+                    <!-- Surefire plugin for running performance tests -->
+                    <plugin>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>${surefire-plugin.version}</version>
+                        <configuration>
+                            <includes>
+                                <include>**/*Test.java</include>
+                                <include>**/Performance*.java</include>
+                                <include>**/*PerformanceTest.java</include>
+                            </includes>
+                            <systemPropertyVariables>
+                                <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
+                                <maven.home>${maven.home}</maven.home>
+                                <performance.test.enabled>true</performance.test.enabled>
+                            </systemPropertyVariables>
+                            <argLine>-Xmx4g -XX:+UseG1GC -XX:MaxGCPauseMillis=100</argLine>
+                        </configuration>
+                    </plugin>
+
+                    <!-- JaCoCo plugin for test coverage reporting -->
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <version>0.8.8</version>
+                        <executions>
+                            <execution>
+                                <id>prepare-agent</id>
+                                <goals>
+                                    <goal>prepare-agent</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>report</id>
+                                <phase>test</phase>
+                                <goals>
+                                    <goal>report</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>coverage-check</id>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <rule>
+                                            <element>PACKAGE</element>
+                                            <limits>
+                                                <limit>
+                                                    <counter>LINE</counter>
+                                                    <value>COVEREDRATIO</value>
+                                                    <minimum>0.80</minimum>
+                                                </limit>
+                                            </limits>
+                                        </rule>
+                                    </rules>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- Exec Maven Plugin for running performance test scripts -->
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <executions>
+                            <execution>
+                                <id>run-performance-tests</id>
+                                <phase>integration-test</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>./run-performance-tests.sh</executable>
+                                    <workingDirectory>${project.basedir}</workingDirectory>
+                                    <skip>${skipITs}</skip>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- PHASE 5A: Unit Tests Only Profile (Fast feedback - <30 seconds) -->
+        <profile>
+            <id>unit-tests-only</id>
+            <properties>
+                <skipITs>true</skipITs>
+                <skipTests>false</skipTests>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>${surefire-plugin.version}</version>
+                        <configuration>
+                            <includes>
+                                <include>**/*Test.java</include>
+                            </includes>
+                            <excludes>
+                                <exclude>**/*IntegrationTest.java</exclude>
+                                <exclude>**/*IT.java</exclude>
+                                <exclude>**/*PerformanceTest.java</exclude>
+                                <exclude>**/Performance*.java</exclude>
+                                <exclude>**/*E2ETest.java</exclude>
+                                <exclude>**/E2E*.java</exclude>
+                                <!-- Temporarily excluded: Phase 3-4 tests with aspirational APIs requiring refactoring -->
+                                <exclude>**/ApprovalStateValidatorTest.java</exclude>
+                                <exclude>**/ApprovalWebhookServiceTest.java</exclude>
+                                <exclude>**/SecondaryTokenVersioningServiceTest.java</exclude>
+                            </excludes>
+                            <forkCount>2</forkCount>
+                            <reuseForks>true</reuseForks>
+                            <argLine>-Xmx2g -XX:+UseParallelGC</argLine>
+                            <systemPropertyVariables>
+                                <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
+                                <maven.home>${maven.home}</maven.home>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- PHASE 5A: Integration Tests Profile (Comprehensive - 2-5 minutes) -->
+        <profile>
+            <id>integration-tests</id>
+            <properties>
+                <skipITs>false</skipITs>
+                <skipTests>true</skipTests>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <version>3.0.0</version>
+                        <configuration>
+                            <includes>
+                                <include>**/*IntegrationTest.java</include>
+                                <include>**/*IT.java</include>
+                            </includes>
+                            <forkCount>1</forkCount>
+                            <reuseForks>false</reuseForks>
+                            <argLine>-Xmx4g -XX:+UseParallelGC</argLine>
+                            <systemPropertyVariables>
+                                <native.image.path>${project.build.directory}/${project.build.finalName}-runner</native.image.path>
+                                <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
+                                <maven.home>${maven.home}</maven.home>
+                            </systemPropertyVariables>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- PHASE 5A: Full Test Suite Profile (Complete with coverage - 10-15 minutes) -->
+        <profile>
+            <id>full-test-suite</id>
+            <properties>
+                <skipITs>false</skipITs>
+                <skipTests>false</skipTests>
+                <performance.test.enabled>true</performance.test.enabled>
+                <jacoco.agent></jacoco.agent>
+            </properties>
+            <build>
+                <plugins>
+                    <!-- Unit Tests with JaCoCo instrumentation -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>${surefire-plugin.version}</version>
+                        <configuration>
+                            <includes>
+                                <include>**/*Test.java</include>
+                            </includes>
+                            <excludes>
+                                <exclude>**/*IntegrationTest.java</exclude>
+                                <exclude>**/*IT.java</exclude>
+                                <exclude>**/*E2ETest.java</exclude>
+                                <exclude>**/E2E*.java</exclude>
+                            </excludes>
+                            <forkCount>2</forkCount>
+                            <reuseForks>true</reuseForks>
+                            <argLine>-Xmx2g -XX:+UseParallelGC ${jacoco.agent}</argLine>
+                            <systemPropertyVariables>
+                                <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
+                                <maven.home>${maven.home}</maven.home>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+
+                    <!-- Integration Tests -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <version>3.0.0</version>
+                        <configuration>
+                            <includes>
+                                <include>**/*IntegrationTest.java</include>
+                                <include>**/*IT.java</include>
+                            </includes>
+                            <excludes>
+                                <exclude>**/*E2ETest.java</exclude>
+                                <exclude>**/E2E*.java</exclude>
+                                <exclude>**/*PerformanceTest.java</exclude>
+                                <exclude>**/Performance*.java</exclude>
+                            </excludes>
+                            <forkCount>1</forkCount>
+                            <reuseForks>false</reuseForks>
+                            <argLine>-Xmx4g -XX:+UseParallelGC ${jacoco.agent}</argLine>
+                            <systemPropertyVariables>
+                                <native.image.path>${project.build.directory}/${project.build.finalName}-runner</native.image.path>
+                                <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
+                                <maven.home>${maven.home}</maven.home>
+                            </systemPropertyVariables>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- JaCoCo Code Coverage -->
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <version>0.8.11</version>
+                        <configuration>
+                            <destFile>${project.build.directory}/jacoco.exec</destFile>
+                            <dataFile>${project.build.directory}/jacoco.exec</dataFile>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>prepare-agent</id>
+                                <goals>
+                                    <goal>prepare-agent</goal>
+                                </goals>
+                                <configuration>
+                                    <propertyName>jacoco.agent</propertyName>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>report</id>
+                                <phase>test</phase>
+                                <goals>
+                                    <goal>report</goal>
+                                </goals>
+                                <configuration>
+                                    <formats>
+                                        <format>HTML</format>
+                                        <format>XML</format>
+                                        <format>CSV</format>
+                                    </formats>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>jacoco-check</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <!-- Overall Project Coverage -->
+                                        <rule>
+                                            <element>PACKAGE</element>
+                                            <excludes>
+                                                <exclude>*Test</exclude>
+                                                <exclude>*Proto</exclude>
+                                                <exclude>*_generated</exclude>
+                                                <exclude>generated.*</exclude>
+                                            </excludes>
+                                            <limits>
+                                                <limit>
+                                                    <counter>LINE</counter>
+                                                    <value>COVEREDRATIO</value>
+                                                    <minimum>0.95</minimum>
+                                                </limit>
+                                                <limit>
+                                                    <counter>BRANCH</counter>
+                                                    <value>COVEREDRATIO</value>
+                                                    <minimum>0.90</minimum>
+                                                </limit>
+                                            </limits>
+                                        </rule>
+
+                                        <!-- Critical Crypto Package -->
+                                        <rule>
+                                            <element>PACKAGE</element>
+                                            <includes>
+                                                <include>io.aurigraph.v11.crypto.*</include>
+                                            </includes>
+                                            <limits>
+                                                <limit>
+                                                    <counter>LINE</counter>
+                                                    <value>COVEREDRATIO</value>
+                                                    <minimum>0.98</minimum>
+                                                </limit>
+                                                <limit>
+                                                    <counter>BRANCH</counter>
+                                                    <value>COVEREDRATIO</value>
+                                                    <minimum>0.95</minimum>
+                                                </limit>
+                                            </limits>
+                                        </rule>
+
+                                        <!-- Critical Consensus Package -->
+                                        <rule>
+                                            <element>PACKAGE</element>
+                                            <includes>
+                                                <include>io.aurigraph.v11.consensus.*</include>
+                                            </includes>
+                                            <limits>
+                                                <limit>
+                                                    <counter>LINE</counter>
+                                                    <value>COVEREDRATIO</value>
+                                                    <minimum>0.95</minimum>
+                                                </limit>
+                                                <limit>
+                                                    <counter>BRANCH</counter>
+                                                    <value>COVEREDRATIO</value>
+                                                    <minimum>0.90</minimum>
+                                                </limit>
+                                            </limits>
+                                        </rule>
+                                    </rules>
+                                    <excludes>
+                                        <!-- Generated code -->
+                                        <exclude>**/*_generated/**</exclude>
+                                        <exclude>**/generated/**</exclude>
+                                        <exclude>**/*_.java</exclude>
+                                        <!-- DTOs and models with no logic -->
+                                        <exclude>**/models/**/*Record.java</exclude>
+                                        <!-- Configuration classes -->
+                                        <exclude>**/*Config.java</exclude>
+                                    </excludes>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Full Test Suite Profile (Unit + Integration + Performance) -->
+        <profile>
+            <id>full-test</id>
+            <activation>
+                <property>
+                    <name>full-test</name>
+                </property>
+            </activation>
+            <properties>
+                <skipITs>false</skipITs>
+                <skipTests>false</skipTests>
+                <performance.test.enabled>true</performance.test.enabled>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>${surefire-plugin.version}</version>
+                        <configuration>
+                            <includes>
+                                <include>**/*Test.java</include>
+                                <include>**/*IT.java</include>
+                            </includes>
+                            <argLine>-Xmx4g -XX:+UseG1GC</argLine>
+                        </configuration>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <version>0.8.8</version>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>prepare-agent</goal>
+                                    <goal>report</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

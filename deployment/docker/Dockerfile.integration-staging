@@ -1,0 +1,95 @@
+################################################################################
+# Dockerfile.integration-staging - Integration Node Staging Build
+# Purpose: Pre-production testing for external API integration
+# Resources: 8-16 CPU cores, 2-4GB RAM
+# Build Type: Staging - Performance-tuned with INFO-level logging and monitoring
+################################################################################
+
+FROM ghcr.io/graalvm/native-image-community:21-muslib AS build
+
+WORKDIR /build
+COPY .mvn/ .mvn/
+COPY mvnw pom.xml ./
+RUN ./mvnw dependency:go-offline -B
+
+COPY src/ src/
+# Staging build with performance optimizations
+RUN ./mvnw clean package -Pnative-fast \
+    -DskipTests \
+    -Dquarkus.native.container-build=false \
+    -Dquarkus.native.native-image-xmx=5g
+
+################################################################################
+# Runtime Stage - Staging
+################################################################################
+
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3
+
+RUN microdnf install -y \
+    supervisor \
+    util-linux \
+    procps-ng \
+    libstdc++ \
+    zlib \
+    curl \
+    && microdnf clean all
+
+WORKDIR /app
+
+COPY --from=build --chown=1001:root /build/target/*-runner /app/aurigraph-v11
+COPY --chown=1001:root scripts/multi-node-launcher.sh /app/
+COPY --chown=1001:root config/supervisord-integration.conf /etc/supervisord.conf
+
+RUN mkdir -p /app/logs /app/data /app/pids /app/config /app/api-cache && \
+    chmod +x /app/multi-node-launcher.sh /app/aurigraph-v11
+
+# Staging environment with monitoring
+ENV NODE_TYPE=INTEGRATION \
+    CONSENSUS_ROLE=OBSERVER \
+    BLOCK_PRODUCTION=DISABLED \
+    TRANSACTION_PROCESSING=DISABLED \
+    SMART_CONTRACTS=DISABLED \
+    PUBLIC_API=ENABLED \
+    LIGHT_MODE=true \
+    BUILD_TYPE=staging \
+    QUARKUS_LOG_LEVEL=INFO \
+    MIN_CPU=8 \
+    MIN_MEMORY=2G \
+    AURIGRAPH_NODE_COUNT=10
+
+# Staging performance settings
+ENV AURIGRAPH_THREAD_POOL_SIZE=128 \
+    AURIGRAPH_BATCH_SIZE=25000 \
+    AURIGRAPH_MEMORY_MODE=performance \
+    AURIGRAPH_MONITORING=enabled \
+    EQUITY_API_ENABLED=true \
+    EQUITY_API_URL=https://api.polygon.io/v1 \
+    CRYPTO_API_ENABLED=true \
+    CRYPTO_API_URL=https://api.coingecko.com/api/v3 \
+    WEATHER_API_ENABLED=true \
+    WEATHER_API_URL=https://api.openweathermap.org/data/2.5 \
+    NEWS_API_ENABLED=true \
+    NEWS_API_URL=https://newsapi.org/v2 \
+    API_CACHE_TTL=300 \
+    API_TIMEOUT=10 \
+    API_RETRY_ATTEMPTS=2 \
+    API_CIRCUIT_BREAKER=soft
+
+# Expose integration ports (10 nodes × 2 ports)
+EXPOSE 9023-9032 9033-9042 8090-8099
+
+# Health check
+HEALTHCHECK --interval=12s --timeout=4s --start-period=20s --retries=3 \
+    CMD curl -f http://localhost:8090/q/health/ready || exit 1
+
+ENTRYPOINT ["/app/multi-node-launcher.sh"]
+
+LABEL role="integration" \
+      type="light-query-node" \
+      build-type="staging" \
+      min-cpu="8" \
+      min-memory="2GB" \
+      max-nodes="15" \
+      version="11.0.0-staging" \
+      apis="Polygon,CoinGecko,OpenWeatherMap,NewsAPI"
+

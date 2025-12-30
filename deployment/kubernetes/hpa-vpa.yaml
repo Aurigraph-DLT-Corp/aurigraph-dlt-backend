@@ -1,0 +1,291 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: aurigraph-v11-hpa
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: autoscaling
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: aurigraph-v11-native
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+  # CPU-based scaling
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  # Memory-based scaling  
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  # Custom metrics for TPS-based scaling
+  - type: Pods
+    pods:
+      metric:
+        name: aurigraph_transactions_per_second
+      target:
+        type: AverageValue
+        averageValue: "1500000"  # Scale up when TPS > 1.5M per pod
+  # HTTP request rate scaling
+  - type: Pods
+    pods:
+      metric:
+        name: http_requests_per_second
+      target:
+        type: AverageValue
+        averageValue: "10000"  # Scale up when HTTP RPS > 10k per pod
+  # gRPC request rate scaling
+  - type: Pods
+    pods:
+      metric:
+        name: grpc_requests_per_second
+      target:
+        type: AverageValue
+        averageValue: "50000"  # Scale up when gRPC RPS > 50k per pod
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30  # Fast scale-up for high TPS
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 5
+        periodSeconds: 30
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300  # Careful scale-down to maintain performance
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+      selectPolicy: Min
+
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: aurigraph-v11-vpa
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: autoscaling
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: aurigraph-v11-native
+  updatePolicy:
+    updateMode: "Auto"  # Automatically apply recommendations
+  resourcePolicy:
+    containerPolicies:
+    - containerName: aurigraph-v11
+      minAllowed:
+        memory: "64Mi"    # Native binary minimum
+        cpu: "50m"        # Very low CPU minimum due to fast startup
+      maxAllowed:
+        memory: "1Gi"     # Maximum memory for high-performance workloads
+        cpu: "4000m"      # High CPU limit for maximum TPS
+      controlledResources: ["cpu", "memory"]
+      controlledValues: RequestsAndLimits
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: aurigraph-v11-pdb
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: availability
+spec:
+  minAvailable: 2  # Always keep at least 2 pods running
+  selector:
+    matchLabels:
+      app: aurigraph-v11
+      deployment-type: native
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: aurigraph-v11-network-policy
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: security
+spec:
+  podSelector:
+    matchLabels:
+      app: aurigraph-v11
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow traffic from other Aurigraph components
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: aurigraph-system
+    - podSelector:
+        matchLabels:
+          app: aurigraph-v11
+    ports:
+    - protocol: TCP
+      port: 9003  # HTTP
+    - protocol: TCP
+      port: 9004  # gRPC
+  # Allow traffic from ingress controllers
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 9003
+  # Allow traffic from monitoring systems
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 9003  # Metrics endpoint
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow communication with other Aurigraph nodes
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: aurigraph-system
+    ports:
+    - protocol: TCP
+      port: 9003
+    - protocol: TCP
+      port: 9004
+  # Allow HTTPS outbound for external APIs
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80
+
+---
+apiVersion: v1
+kind: ServiceMonitor
+metadata:
+  name: aurigraph-v11-servicemonitor
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: aurigraph-v11
+  endpoints:
+  - port: metrics
+    path: /q/metrics
+    interval: 15s
+    scrapeTimeout: 10s
+    honorLabels: true
+  - port: http
+    path: /q/health
+    interval: 30s
+    scrapeTimeout: 5s
+  namespaceSelector:
+    matchNames:
+    - aurigraph-system
+
+---
+apiVersion: v1
+kind: PrometheusRule
+metadata:
+  name: aurigraph-v11-alerts
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: alerting
+spec:
+  groups:
+  - name: aurigraph-v11.performance
+    rules:
+    - alert: AurigraphHighResponseTime
+      expr: histogram_quantile(0.95, http_server_requests_seconds_bucket{job="aurigraph-v11"}) > 0.1
+      for: 2m
+      labels:
+        severity: warning
+        service: aurigraph-v11
+      annotations:
+        summary: "Aurigraph V11 high response time"
+        description: "95th percentile response time is {{ $value }}s, exceeding 100ms target"
+    
+    - alert: AurigraphLowTPS
+      expr: rate(aurigraph_transactions_total[1m]) < 1000000
+      for: 5m
+      labels:
+        severity: critical
+        service: aurigraph-v11
+      annotations:
+        summary: "Aurigraph V11 low TPS performance"
+        description: "Transaction rate is {{ $value }} TPS, below 1M TPS threshold"
+    
+    - alert: AurigraphHighMemoryUsage
+      expr: container_memory_usage_bytes{container="aurigraph-v11"} / container_spec_memory_limit_bytes{container="aurigraph-v11"} > 0.9
+      for: 5m
+      labels:
+        severity: warning
+        service: aurigraph-v11
+      annotations:
+        summary: "Aurigraph V11 high memory usage"
+        description: "Memory usage is {{ $value | humanizePercentage }} of limit"
+    
+    - alert: AurigraphPodRestart
+      expr: increase(kube_pod_container_status_restarts_total{container="aurigraph-v11"}[15m]) > 0
+      for: 0m
+      labels:
+        severity: warning
+        service: aurigraph-v11
+      annotations:
+        summary: "Aurigraph V11 pod restarted"
+        description: "Pod {{ $labels.pod }} has restarted {{ $value }} times in the last 15 minutes"
+    
+    - alert: AurigraphConsensusFailure
+      expr: aurigraph_consensus_leader_elections_total > 5
+      for: 10m
+      labels:
+        severity: critical
+        service: aurigraph-v11
+      annotations:
+        summary: "Aurigraph V11 consensus instability"
+        description: "Consensus has triggered {{ $value }} leader elections in 10 minutes"
+    
+    - alert: AurigraphAIOptimizationFailure
+      expr: aurigraph_ai_optimization_errors_total > 10
+      for: 5m
+      labels:
+        severity: warning
+        service: aurigraph-v11
+      annotations:
+        summary: "Aurigraph V11 AI optimization errors"
+        description: "AI optimization has {{ $value }} errors in 5 minutes"

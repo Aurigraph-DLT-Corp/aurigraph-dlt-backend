@@ -1,0 +1,127 @@
+[
+  {
+    "interfaces": [
+      "io.aurigraph.v11.grpc.AurigraphV11GrpcService"
+    ]
+  },
+  {
+    "interfaces": [
+      "io.aurigraph.v11.grpc.HighPerformanceGrpcService"
+    ]
+  },
+  {
+    "interfaces": [
+      "io.aurigraph.v11.consensus.HyperRAFTConsensusService"
+    ]
+  },
+  {
+    "interfaces": [
+      "io.aurigraph.v11.crypto.QuantumCryptoService"
+    ]
+  },
+  {
+    "interfaces": [
+      "io.aurigraph.v11.ai.AIOptimizationService"
+    ]
+  },
+  {
+    "interfaces": [
+      "io.aurigraph.v11.transaction.EnhancedTransactionService"
+    ]
+  },
+  {
+    "interfaces": [
+      "io.aurigraph.v11.hms.HMSIntegrationService"
+    ]
+  },
+  {
+    "interfaces": [
+      "io.aurigraph.bridge.CrossChainBridgeService"
+    ]
+  },
+  {
+    "interfaces": [
+      "io.aurigraph.v11.network.P2PNetworkService"
+    ]
+  },
+  {
+    "interfaces": [
+      "jakarta.enterprise.context.ApplicationScoped"
+    ]
+  },
+  {
+    "interfaces": [
+      "jakarta.inject.Singleton"
+    ]
+  },
+  {
+    "interfaces": [
+      "io.smallrye.mutiny.Uni"
+    ]
+  },
+  {
+    "interfaces": [
+      "io.smallrye.mutiny.Multi"
+    ]
+  },
+  {
+    "interfaces": [
+      "io.grpc.stub.StreamObserver"
+    ]
+  },
+  {
+    "interfaces": [
+      "java.util.concurrent.Callable"
+    ]
+  },
+  {
+    "interfaces": [
+      "java.util.function.Supplier"
+    ]
+  },
+  {
+    "interfaces": [
+      "java.util.function.Consumer"
+    ]
+  },
+  {
+    "interfaces": [
+      "java.util.function.Function"
+    ]
+  },
+  {
+    "interfaces": [
+      "java.util.function.BiFunction"
+    ]
+  },
+  {
+    "interfaces": [
+      "java.util.concurrent.CompletionStage"
+    ]
+  },
+  {
+    "interfaces": [
+      "java.util.concurrent.Future"
+    ]
+  },
+  {
+    "interfaces": [
+      "org.eclipse.microprofile.health.HealthCheck"
+    ]
+  },
+  {
+    "interfaces": [
+      "org.eclipse.microprofile.metrics.Counter"
+    ]
+  },
+  {
+    "interfaces": [
+      "org.eclipse.microprofile.metrics.Histogram"
+    ]
+  },
+  {
+    "interfaces": [
+      "org.eclipse.microprofile.metrics.Timer"
+    ]
+  }
+]

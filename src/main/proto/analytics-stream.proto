@@ -1,0 +1,330 @@
+syntax = "proto3";
+
+package io.aurigraph.v11.proto;
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+import "consensus.proto";
+import "transaction.proto";
+
+option java_multiple_files = true;
+option java_package = "io.aurigraph.v11.proto";
+option java_outer_classname = "AnalyticsStreamProto";
+
+/**
+ * Analytics Stream Protocol Buffer Definitions
+ *
+ * Replaces WebSocket analytics streams with gRPC-Web bidirectional streaming.
+ * Optimized for real-time dashboard analytics with Protobuf binary encoding.
+ *
+ * Key Benefits over WebSocket+JSON:
+ * - 60-70% bandwidth reduction (Protobuf vs JSON)
+ * - Type-safe client generation (TypeScript + Java)
+ * - Built-in flow control and backpressure
+ * - HTTP/2 multiplexing (multiple streams, one connection)
+ */
+
+// ============================================================================
+// Dashboard Analytics Messages
+// ============================================================================
+
+message DashboardAnalytics {
+  string dashboard_id = 1;
+  google.protobuf.Timestamp timestamp = 2;
+
+  // Performance Metrics
+  PerformanceMetrics performance = 3;
+
+  // Transaction Statistics
+  TransactionStats transaction_stats = 4;
+
+  // Network Health
+  NetworkHealth network_health = 5;
+
+  // Consensus Metrics
+  ConsensusMetrics consensus_metrics = 6;
+
+  // Resource Utilization
+  ResourceUtilization resources = 7;
+
+  // Alert Summary
+  AlertSummary alerts = 8;
+}
+
+message PerformanceMetrics {
+  // TPS Metrics
+  int64 current_tps = 1;
+  int64 peak_tps = 2;
+  int64 average_tps = 3;
+  double tps_trend_percent = 4;  // Positive = increasing
+
+  // Latency Metrics
+  double avg_latency_ms = 5;
+  double p50_latency_ms = 6;
+  double p95_latency_ms = 7;
+  double p99_latency_ms = 8;
+
+  // Finality
+  double avg_finality_ms = 9;
+  double finality_rate_percent = 10;
+
+  // Throughput
+  int64 bytes_per_second = 11;
+  int64 transactions_per_block = 12;
+
+  PerformanceGrade overall_grade = 13;
+}
+
+message TransactionStats {
+  // Counters
+  int64 total_transactions = 1;
+  int64 pending_count = 2;
+  int64 confirmed_count = 3;
+  int64 failed_count = 4;
+
+  // Rates
+  double success_rate_percent = 5;
+  double failure_rate_percent = 6;
+
+  // Pool Status
+  int32 mempool_size = 7;
+  double mempool_utilization_percent = 8;
+
+  // Gas Metrics
+  double avg_gas_price = 9;
+  int64 total_gas_used = 10;
+
+  // Time Windows (last 1m, 5m, 1h)
+  repeated TimeWindowStats time_windows = 11;
+}
+
+message TimeWindowStats {
+  string window_name = 1;  // "1m", "5m", "1h", "24h"
+  int64 transaction_count = 2;
+  double avg_tps = 3;
+  double success_rate = 4;
+}
+
+message NetworkHealth {
+  // Node Status
+  int32 total_nodes = 1;
+  int32 active_nodes = 2;
+  int32 syncing_nodes = 3;
+  int32 offline_nodes = 4;
+
+  // Network Connectivity
+  double network_uptime_percent = 5;
+  int32 peer_connections = 6;
+  double avg_peer_latency_ms = 7;
+
+  // Validator Status
+  int32 active_validators = 8;
+  int32 total_validators = 9;
+  double validator_participation_rate = 10;
+
+  // Overall Health Score (0-100)
+  double health_score = 11;
+  HealthStatus status = 12;
+}
+
+// ConsensusMetrics is defined in consensus.proto and reused here
+
+message ResourceUtilization {
+  // System Resources (from common.proto SystemMetrics)
+  SystemMetrics system = 1;
+
+  // Blockchain Specific
+  int64 blockchain_size_bytes = 2;
+  int64 state_size_bytes = 3;
+  int64 rocksdb_size_bytes = 4;
+
+  // Cache Hit Rates
+  double block_cache_hit_rate = 5;
+  double state_cache_hit_rate = 6;
+
+  // I/O Metrics
+  int64 disk_read_bytes_per_sec = 7;
+  int64 disk_write_bytes_per_sec = 8;
+  int64 network_rx_bytes_per_sec = 9;
+  int64 network_tx_bytes_per_sec = 10;
+}
+
+message AlertSummary {
+  int32 critical_count = 1;
+  int32 warning_count = 2;
+  int32 info_count = 3;
+
+  repeated Alert recent_alerts = 4;
+}
+
+message Alert {
+  enum AlertLevel {
+    INFO = 0;
+    WARNING = 1;
+    CRITICAL = 2;
+  }
+
+  string alert_id = 1;
+  AlertLevel level = 2;
+  string title = 3;
+  string message = 4;
+  google.protobuf.Timestamp created_at = 5;
+  bool acknowledged = 6;
+}
+
+// ============================================================================
+// Real-Time Analytics Stream
+// ============================================================================
+
+message RealTimeDataPoint {
+  google.protobuf.Timestamp timestamp = 1;
+
+  oneof data_type {
+    TPSUpdate tps_update = 2;
+    LatencyUpdate latency_update = 3;
+    TransactionEvent transaction_event = 4;
+    BlockEvent block_event = 5;
+    NodeEvent node_event = 6;
+    AlertEvent alert_event = 7;
+  }
+}
+
+message TPSUpdate {
+  int64 current_tps = 1;
+  int64 window_transactions = 2;  // Transactions in last 1 second
+  double trend = 3;  // Rate of change
+}
+
+message LatencyUpdate {
+  double current_latency_ms = 1;
+  double p95_latency_ms = 2;
+  double p99_latency_ms = 3;
+}
+
+// TransactionEvent is defined in transaction.proto and reused here
+
+message BlockEvent {
+  enum EventType {
+    PROPOSED = 0;
+    COMMITTED = 1;
+    FINALIZED = 2;
+  }
+
+  string block_hash = 1;
+  int64 block_number = 2;
+  EventType event_type = 3;
+  int32 transaction_count = 4;
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+message NodeEvent {
+  enum EventType {
+    NODE_JOINED = 0;
+    NODE_LEFT = 1;
+    NODE_SYNCING = 2;
+    NODE_ERROR = 3;
+  }
+
+  string node_id = 1;
+  EventType event_type = 2;
+  string details = 3;
+  google.protobuf.Timestamp timestamp = 4;
+}
+
+message AlertEvent {
+  Alert alert = 1;
+  bool is_resolved = 2;
+}
+
+// ============================================================================
+// Stream Control Messages
+// ============================================================================
+
+message SubscribeRequest {
+  // Client identification
+  string client_id = 1;
+  string session_token = 2;
+
+  // Subscription Configuration
+  repeated string data_types = 3;  // ["tps", "latency", "transactions", "blocks"]
+  int32 update_interval_ms = 4;    // Minimum interval between updates (default: 1000ms)
+
+  // Filtering
+  repeated string filter_node_ids = 5;
+  repeated string filter_channels = 6;
+
+  // Buffer Settings
+  int32 buffer_size = 7;  // Client-side buffer size (default: 100)
+}
+
+message SubscribeResponse {
+  bool success = 1;
+  string message = 2;
+  string subscription_id = 3;
+  google.protobuf.Timestamp started_at = 4;
+}
+
+message UnsubscribeRequest {
+  string subscription_id = 1;
+  string client_id = 2;
+}
+
+message UnsubscribeResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// ============================================================================
+// gRPC Service Definition
+// ============================================================================
+
+service AnalyticsStreamService {
+  // Get current dashboard analytics (one-shot)
+  rpc GetDashboardAnalytics(DashboardAnalyticsRequest) returns (DashboardAnalytics);
+
+  // Subscribe to real-time analytics updates (server streaming)
+  rpc StreamDashboardAnalytics(SubscribeRequest) returns (stream DashboardAnalytics);
+
+  // Subscribe to real-time data points (server streaming with higher frequency)
+  rpc StreamRealTimeData(SubscribeRequest) returns (stream RealTimeDataPoint);
+
+  // Bidirectional streaming for interactive dashboards
+  rpc InteractiveDashboard(stream DashboardCommand) returns (stream DashboardAnalytics);
+
+  // Historical analytics query
+  rpc QueryHistoricalAnalytics(HistoricalQuery) returns (HistoricalAnalyticsResponse);
+}
+
+message DashboardAnalyticsRequest {
+  string dashboard_id = 1;
+  bool include_historical = 2;
+  int32 historical_minutes = 3;  // Last N minutes (default: 60)
+}
+
+message DashboardCommand {
+  enum CommandType {
+    REFRESH = 0;
+    CHANGE_INTERVAL = 1;
+    ADD_FILTER = 2;
+    REMOVE_FILTER = 3;
+    PAUSE = 4;
+    RESUME = 5;
+  }
+
+  CommandType command = 1;
+  map<string, string> parameters = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+message HistoricalQuery {
+  google.protobuf.Timestamp start_time = 1;
+  google.protobuf.Timestamp end_time = 2;
+  repeated string metrics = 3;  // ["tps", "latency", "block_time"]
+  int32 granularity_seconds = 4;  // Data point interval (default: 60)
+}
+
+message HistoricalAnalyticsResponse {
+  repeated DashboardAnalytics data_points = 1;
+  int32 total_points = 2;
+  google.protobuf.Timestamp query_executed_at = 3;
+}

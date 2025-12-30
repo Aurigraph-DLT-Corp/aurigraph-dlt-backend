@@ -1,0 +1,28 @@
+package io.aurigraph.v11.token.secondary;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+/**
+ * CDI Event: Version Created
+ *
+ * Fired when a new version is created.
+ * Allows subscribers to react to version creation (logging, metrics, etc).
+ *
+ * @version 12.0.0
+ * @since December 23, 2025
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class VersionCreatedEvent {
+    private UUID versionId;
+    private UUID secondaryTokenId;
+    private Integer versionNumber;
+    private String content;
+    private LocalDateTime createdAt;
+}

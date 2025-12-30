@@ -1,0 +1,561 @@
+package io.aurigraph.v11.analytics;
+
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import io.smallrye.mutiny.Uni;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+
+/**
+ * Analytics Service - AV11-062
+ * Main analytics engine for aggregating and processing platform metrics.
+ *
+ * Provides comprehensive analytics across multiple dimensions:
+ * - Transaction volume trends
+ * - Token distribution patterns
+ * - Performance metrics over time
+ * - Network health indicators
+ *
+ * @version 11.0.0
+ * @since Sprint 14
+ */
+@ApplicationScoped
+public class AnalyticsService {
+
+    private static final Logger LOG = Logger.getLogger(AnalyticsService.class);
+
+    @Inject
+    TimeSeriesAggregator timeSeriesAggregator;
+
+    @Inject
+    MetricsAggregator metricsAggregator;
+
+    @Inject
+    AnalyticsCache analyticsCache;
+
+    @ConfigProperty(name = "analytics.cache.ttl.seconds", defaultValue = "300")
+    long cacheTTLSeconds;
+
+    @ConfigProperty(name = "analytics.sampling.rate", defaultValue = "1000")
+    int samplingRate;
+
+    // In-memory data structures for quick analytics (production should use persistent storage)
+    private final Map<Instant, Long> transactionVolumes = new ConcurrentHashMap<>();
+    private final Map<String, Long> tokenDistribution = new ConcurrentHashMap<>();
+    private final Map<Instant, PerformanceMetrics> performanceHistory = new ConcurrentHashMap<>();
+
+    /**
+     * Get analytics for specified period
+     * @param period Period to analyze (24h, 7d, 30d)
+     * @return Analytics data for the period
+     */
+    public Uni<AnalyticsData> getAnalytics(String period) {
+        LOG.infof("Fetching analytics for period: %s", period);
+
+        return Uni.createFrom().item(() -> {
+            // Check cache first
+            String cacheKey = "analytics:" + period;
+            AnalyticsData cached = analyticsCache.get(cacheKey);
+            if (cached != null) {
+                LOG.debug("Analytics cache hit for period: " + period);
+                return cached;
+            }
+
+            // Calculate period boundaries
+            Duration duration = parsePeriod(period);
+            Instant endTime = Instant.now();
+            Instant startTime = endTime.minus(duration);
+
+            // Aggregate analytics data
+            AnalyticsData analytics = new AnalyticsData();
+            analytics.setPeriod(period);
+            analytics.setStartTime(startTime);
+            analytics.setEndTime(endTime);
+
+            // Transaction volume statistics
+            long totalTransactions = calculateTotalTransactions(startTime, endTime);
+            analytics.setTotalTransactions(totalTransactions);
+            analytics.setAverageTPS(calculateAverageTPS(totalTransactions, duration));
+            analytics.setPeakTPS(calculatePeakTPS(startTime, endTime));
+
+            // Performance statistics
+            analytics.setAverageLatency(calculateAverageLatency(startTime, endTime));
+            analytics.setSuccessRate(calculateSuccessRate(startTime, endTime));
+
+            // Token statistics
+            analytics.setUniqueTokens(tokenDistribution.size());
+            analytics.setTotalTokenVolume(tokenDistribution.values().stream().mapToLong(Long::longValue).sum());
+
+            // Network statistics
+            analytics.setActiveNodes(getActiveNodeCount());
+            analytics.setConsensusRounds(getConsensusRoundCount(startTime, endTime));
+
+            // Cache the result
+            analyticsCache.put(cacheKey, analytics, cacheTTLSeconds);
+
+            LOG.infof("Analytics generated for period %s: %d transactions, %.2f avg TPS",
+                     period, totalTransactions, analytics.getAverageTPS());
+
+            return analytics;
+        });
+    }
+
+    /**
+     * Get transaction volume trends over time
+     * @return Time-series data of transaction volumes
+     */
+    public Uni<VolumeData> getVolumeData() {
+        LOG.info("Fetching transaction volume trends");
+
+        return Uni.createFrom().item(() -> {
+            String cacheKey = "volume:trends";
+            VolumeData cached = analyticsCache.get(cacheKey);
+            if (cached != null) {
+                return cached;
+            }
+
+            VolumeData volumeData = new VolumeData();
+
+            // Aggregate hourly volumes
+            Map<Instant, Long> hourlyVolumes = timeSeriesAggregator.aggregateHourly(transactionVolumes);
+            volumeData.setHourlyVolumes(hourlyVolumes);
+
+            // Aggregate daily volumes
+            Map<Instant, Long> dailyVolumes = timeSeriesAggregator.aggregateDaily(transactionVolumes);
+            volumeData.setDailyVolumes(dailyVolumes);
+
+            // Calculate trends
+            volumeData.setGrowthRate(calculateGrowthRate(dailyVolumes));
+            volumeData.setVolatility(calculateVolatility(hourlyVolumes));
+
+            // Peak analysis
+            volumeData.setPeakHour(findPeakPeriod(hourlyVolumes));
+            volumeData.setPeakDay(findPeakPeriod(dailyVolumes));
+
+            analyticsCache.put(cacheKey, volumeData, cacheTTLSeconds);
+
+            LOG.infof("Volume data generated with %d hourly and %d daily data points",
+                     hourlyVolumes.size(), dailyVolumes.size());
+
+            return volumeData;
+        });
+    }
+
+    /**
+     * Get token distribution data
+     * @return Token distribution statistics
+     */
+    public Uni<DistributionData> getDistributionData() {
+        LOG.info("Fetching token distribution data");
+
+        return Uni.createFrom().item(() -> {
+            String cacheKey = "distribution:tokens";
+            DistributionData cached = analyticsCache.get(cacheKey);
+            if (cached != null) {
+                return cached;
+            }
+
+            DistributionData distributionData = new DistributionData();
+
+            // Top tokens by volume
+            List<TokenStats> topTokens = tokenDistribution.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .limit(100)
+                .map(e -> new TokenStats(e.getKey(), e.getValue()))
+                .collect(Collectors.toList());
+            distributionData.setTopTokens(topTokens);
+
+            // Distribution metrics
+            distributionData.setTotalTokenTypes(tokenDistribution.size());
+            distributionData.setTotalVolume(tokenDistribution.values().stream().mapToLong(Long::longValue).sum());
+            distributionData.setGiniCoefficient(calculateGiniCoefficient(tokenDistribution));
+            distributionData.setConcentrationIndex(calculateConcentrationIndex(tokenDistribution));
+
+            // Token categories
+            distributionData.setTokensByCategory(categorizeTokens(tokenDistribution));
+
+            analyticsCache.put(cacheKey, distributionData, cacheTTLSeconds);
+
+            LOG.infof("Distribution data generated for %d token types", tokenDistribution.size());
+
+            return distributionData;
+        });
+    }
+
+    /**
+     * Get performance metrics over time
+     * @return Time-series performance data
+     */
+    public Uni<PerformanceData> getPerformanceData() {
+        LOG.info("Fetching performance metrics over time");
+
+        return Uni.createFrom().item(() -> {
+            String cacheKey = "performance:timeseries";
+            PerformanceData cached = analyticsCache.get(cacheKey);
+            if (cached != null) {
+                return cached;
+            }
+
+            PerformanceData performanceData = new PerformanceData();
+
+            // TPS over time
+            Map<Instant, Double> tpsTimeSeries = metricsAggregator.calculateTPSTimeSeries(performanceHistory);
+            performanceData.setTpsTimeSeries(tpsTimeSeries);
+
+            // Latency over time
+            Map<Instant, Double> latencyTimeSeries = metricsAggregator.calculateLatencyTimeSeries(performanceHistory);
+            performanceData.setLatencyTimeSeries(latencyTimeSeries);
+
+            // Success rate over time
+            Map<Instant, Double> successRateTimeSeries = metricsAggregator.calculateSuccessRateTimeSeries(performanceHistory);
+            performanceData.setSuccessRateTimeSeries(successRateTimeSeries);
+
+            // Performance statistics
+            performanceData.setAverageTPS(tpsTimeSeries.values().stream().mapToDouble(Double::doubleValue).average().orElse(0.0));
+            performanceData.setPeakTPS(tpsTimeSeries.values().stream().mapToDouble(Double::doubleValue).max().orElse(0.0));
+            performanceData.setMinTPS(tpsTimeSeries.values().stream().mapToDouble(Double::doubleValue).min().orElse(0.0));
+
+            performanceData.setAverageLatency(latencyTimeSeries.values().stream().mapToDouble(Double::doubleValue).average().orElse(0.0));
+            performanceData.setP95Latency(calculatePercentile(latencyTimeSeries.values(), 95));
+            performanceData.setP99Latency(calculatePercentile(latencyTimeSeries.values(), 99));
+
+            analyticsCache.put(cacheKey, performanceData, Duration.ofSeconds(cacheTTLSeconds));
+
+            LOG.infof("Performance data generated with %d TPS and %d latency data points",
+                     tpsTimeSeries.size(), latencyTimeSeries.size());
+
+            return performanceData;
+        });
+    }
+
+    // ==================== Data Recording Methods ====================
+
+    /**
+     * Record transaction for analytics
+     */
+    public void recordTransaction(String tokenType, Instant timestamp) {
+        transactionVolumes.merge(timestamp.truncatedTo(ChronoUnit.SECONDS), 1L, Long::sum);
+        tokenDistribution.merge(tokenType, 1L, Long::sum);
+    }
+
+    /**
+     * Record performance metrics
+     */
+    public void recordPerformance(double tps, double latency, double successRate, Instant timestamp) {
+        PerformanceMetrics metrics = new PerformanceMetrics();
+        metrics.setTps(tps);
+        metrics.setLatency(latency);
+        metrics.setSuccessRate(successRate);
+        metrics.setTimestamp(timestamp);
+        performanceHistory.put(timestamp.truncatedTo(ChronoUnit.SECONDS), metrics);
+    }
+
+    // ==================== Helper Methods ====================
+
+    private Duration parsePeriod(String period) {
+        return switch (period.toLowerCase()) {
+            case "24h", "1d" -> Duration.ofHours(24);
+            case "7d" -> Duration.ofDays(7);
+            case "30d" -> Duration.ofDays(30);
+            default -> Duration.ofHours(24);
+        };
+    }
+
+    private long calculateTotalTransactions(Instant start, Instant end) {
+        return transactionVolumes.entrySet().stream()
+            .filter(e -> !e.getKey().isBefore(start) && !e.getKey().isAfter(end))
+            .mapToLong(Map.Entry::getValue)
+            .sum();
+    }
+
+    private double calculateAverageTPS(long totalTransactions, Duration duration) {
+        double seconds = duration.getSeconds();
+        return seconds > 0 ? totalTransactions / seconds : 0.0;
+    }
+
+    private double calculatePeakTPS(Instant start, Instant end) {
+        return transactionVolumes.entrySet().stream()
+            .filter(e -> !e.getKey().isBefore(start) && !e.getKey().isAfter(end))
+            .mapToLong(Map.Entry::getValue)
+            .max()
+            .orElse(0L);
+    }
+
+    private double calculateAverageLatency(Instant start, Instant end) {
+        return performanceHistory.entrySet().stream()
+            .filter(e -> !e.getKey().isBefore(start) && !e.getKey().isAfter(end))
+            .mapToDouble(e -> e.getValue().getLatency())
+            .average()
+            .orElse(0.0);
+    }
+
+    private double calculateSuccessRate(Instant start, Instant end) {
+        return performanceHistory.entrySet().stream()
+            .filter(e -> !e.getKey().isBefore(start) && !e.getKey().isAfter(end))
+            .mapToDouble(e -> e.getValue().getSuccessRate())
+            .average()
+            .orElse(100.0);
+    }
+
+    private int getActiveNodeCount() {
+        // TODO: Integrate with actual node tracking
+        return 5;
+    }
+
+    private long getConsensusRoundCount(Instant start, Instant end) {
+        // TODO: Integrate with actual consensus tracking
+        return Duration.between(start, end).getSeconds() / 10; // Estimate based on 10s rounds
+    }
+
+    private double calculateGrowthRate(Map<Instant, Long> dailyVolumes) {
+        if (dailyVolumes.size() < 2) return 0.0;
+
+        List<Long> volumes = dailyVolumes.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .map(Map.Entry::getValue)
+            .collect(Collectors.toList());
+
+        if (volumes.isEmpty()) return 0.0;
+
+        long first = volumes.get(0);
+        long last = volumes.get(volumes.size() - 1);
+
+        return first > 0 ? ((double) (last - first) / first) * 100.0 : 0.0;
+    }
+
+    private double calculateVolatility(Map<Instant, Long> hourlyVolumes) {
+        if (hourlyVolumes.size() < 2) return 0.0;
+
+        double[] values = hourlyVolumes.values().stream().mapToDouble(Long::doubleValue).toArray();
+        double mean = Arrays.stream(values).average().orElse(0.0);
+        double variance = Arrays.stream(values).map(v -> Math.pow(v - mean, 2)).average().orElse(0.0);
+
+        return Math.sqrt(variance);
+    }
+
+    private Instant findPeakPeriod(Map<Instant, Long> timeSeries) {
+        return timeSeries.entrySet().stream()
+            .max(Map.Entry.comparingByValue())
+            .map(Map.Entry::getKey)
+            .orElse(Instant.now());
+    }
+
+    private double calculateGiniCoefficient(Map<String, Long> distribution) {
+        List<Long> values = new ArrayList<>(distribution.values());
+        Collections.sort(values);
+
+        if (values.isEmpty()) return 0.0;
+
+        long sum = values.stream().mapToLong(Long::longValue).sum();
+        if (sum == 0) return 0.0;
+
+        double numerator = 0.0;
+        for (int i = 0; i < values.size(); i++) {
+            numerator += (i + 1) * values.get(i);
+        }
+
+        double denominator = values.size() * sum;
+        return (2 * numerator) / denominator - (values.size() + 1.0) / values.size();
+    }
+
+    private double calculateConcentrationIndex(Map<String, Long> distribution) {
+        long total = distribution.values().stream().mapToLong(Long::longValue).sum();
+        if (total == 0) return 0.0;
+
+        // Herfindahl-Hirschman Index
+        return distribution.values().stream()
+            .mapToDouble(v -> {
+                double share = (double) v / total;
+                return share * share;
+            })
+            .sum() * 10000.0; // Scale to 0-10000
+    }
+
+    private Map<String, Long> categorizeTokens(Map<String, Long> distribution) {
+        Map<String, Long> categories = new HashMap<>();
+
+        distribution.forEach((token, volume) -> {
+            String category = determineTokenCategory(token);
+            categories.merge(category, volume, Long::sum);
+        });
+
+        return categories;
+    }
+
+    private String determineTokenCategory(String token) {
+        // Simple categorization logic
+        if (token.startsWith("RWA")) return "Real World Assets";
+        if (token.startsWith("NFT")) return "Non-Fungible Tokens";
+        if (token.startsWith("HMS")) return "Healthcare Assets";
+        if (token.startsWith("DEBT")) return "Debt Instruments";
+        if (token.startsWith("EQUITY")) return "Equity Tokens";
+        return "Utility Tokens";
+    }
+
+    private double calculatePercentile(Collection<Double> values, int percentile) {
+        if (values.isEmpty()) return 0.0;
+
+        List<Double> sorted = values.stream().sorted().collect(Collectors.toList());
+        int index = (int) Math.ceil(percentile / 100.0 * sorted.size()) - 1;
+        return sorted.get(Math.max(0, Math.min(index, sorted.size() - 1)));
+    }
+
+    // ==================== Data Classes ====================
+
+    public static class AnalyticsData {
+        private String period;
+        private Instant startTime;
+        private Instant endTime;
+        private long totalTransactions;
+        private double averageTPS;
+        private double peakTPS;
+        private double averageLatency;
+        private double successRate;
+        private int uniqueTokens;
+        private long totalTokenVolume;
+        private int activeNodes;
+        private long consensusRounds;
+
+        // Getters and setters
+        public String getPeriod() { return period; }
+        public void setPeriod(String period) { this.period = period; }
+        public Instant getStartTime() { return startTime; }
+        public void setStartTime(Instant startTime) { this.startTime = startTime; }
+        public Instant getEndTime() { return endTime; }
+        public void setEndTime(Instant endTime) { this.endTime = endTime; }
+        public long getTotalTransactions() { return totalTransactions; }
+        public void setTotalTransactions(long totalTransactions) { this.totalTransactions = totalTransactions; }
+        public double getAverageTPS() { return averageTPS; }
+        public void setAverageTPS(double averageTPS) { this.averageTPS = averageTPS; }
+        public double getPeakTPS() { return peakTPS; }
+        public void setPeakTPS(double peakTPS) { this.peakTPS = peakTPS; }
+        public double getAverageLatency() { return averageLatency; }
+        public void setAverageLatency(double averageLatency) { this.averageLatency = averageLatency; }
+        public double getSuccessRate() { return successRate; }
+        public void setSuccessRate(double successRate) { this.successRate = successRate; }
+        public int getUniqueTokens() { return uniqueTokens; }
+        public void setUniqueTokens(int uniqueTokens) { this.uniqueTokens = uniqueTokens; }
+        public long getTotalTokenVolume() { return totalTokenVolume; }
+        public void setTotalTokenVolume(long totalTokenVolume) { this.totalTokenVolume = totalTokenVolume; }
+        public int getActiveNodes() { return activeNodes; }
+        public void setActiveNodes(int activeNodes) { this.activeNodes = activeNodes; }
+        public long getConsensusRounds() { return consensusRounds; }
+        public void setConsensusRounds(long consensusRounds) { this.consensusRounds = consensusRounds; }
+    }
+
+    public static class VolumeData {
+        private Map<Instant, Long> hourlyVolumes;
+        private Map<Instant, Long> dailyVolumes;
+        private double growthRate;
+        private double volatility;
+        private Instant peakHour;
+        private Instant peakDay;
+
+        // Getters and setters
+        public Map<Instant, Long> getHourlyVolumes() { return hourlyVolumes; }
+        public void setHourlyVolumes(Map<Instant, Long> hourlyVolumes) { this.hourlyVolumes = hourlyVolumes; }
+        public Map<Instant, Long> getDailyVolumes() { return dailyVolumes; }
+        public void setDailyVolumes(Map<Instant, Long> dailyVolumes) { this.dailyVolumes = dailyVolumes; }
+        public double getGrowthRate() { return growthRate; }
+        public void setGrowthRate(double growthRate) { this.growthRate = growthRate; }
+        public double getVolatility() { return volatility; }
+        public void setVolatility(double volatility) { this.volatility = volatility; }
+        public Instant getPeakHour() { return peakHour; }
+        public void setPeakHour(Instant peakHour) { this.peakHour = peakHour; }
+        public Instant getPeakDay() { return peakDay; }
+        public void setPeakDay(Instant peakDay) { this.peakDay = peakDay; }
+    }
+
+    public static class DistributionData {
+        private List<TokenStats> topTokens;
+        private int totalTokenTypes;
+        private long totalVolume;
+        private double giniCoefficient;
+        private double concentrationIndex;
+        private Map<String, Long> tokensByCategory;
+
+        // Getters and setters
+        public List<TokenStats> getTopTokens() { return topTokens; }
+        public void setTopTokens(List<TokenStats> topTokens) { this.topTokens = topTokens; }
+        public int getTotalTokenTypes() { return totalTokenTypes; }
+        public void setTotalTokenTypes(int totalTokenTypes) { this.totalTokenTypes = totalTokenTypes; }
+        public long getTotalVolume() { return totalVolume; }
+        public void setTotalVolume(long totalVolume) { this.totalVolume = totalVolume; }
+        public double getGiniCoefficient() { return giniCoefficient; }
+        public void setGiniCoefficient(double giniCoefficient) { this.giniCoefficient = giniCoefficient; }
+        public double getConcentrationIndex() { return concentrationIndex; }
+        public void setConcentrationIndex(double concentrationIndex) { this.concentrationIndex = concentrationIndex; }
+        public Map<String, Long> getTokensByCategory() { return tokensByCategory; }
+        public void setTokensByCategory(Map<String, Long> tokensByCategory) { this.tokensByCategory = tokensByCategory; }
+    }
+
+    public static class TokenStats {
+        private String tokenType;
+        private long volume;
+
+        public TokenStats(String tokenType, long volume) {
+            this.tokenType = tokenType;
+            this.volume = volume;
+        }
+
+        public String getTokenType() { return tokenType; }
+        public void setTokenType(String tokenType) { this.tokenType = tokenType; }
+        public long getVolume() { return volume; }
+        public void setVolume(long volume) { this.volume = volume; }
+    }
+
+    public static class PerformanceData {
+        private Map<Instant, Double> tpsTimeSeries;
+        private Map<Instant, Double> latencyTimeSeries;
+        private Map<Instant, Double> successRateTimeSeries;
+        private double averageTPS;
+        private double peakTPS;
+        private double minTPS;
+        private double averageLatency;
+        private double p95Latency;
+        private double p99Latency;
+
+        // Getters and setters
+        public Map<Instant, Double> getTpsTimeSeries() { return tpsTimeSeries; }
+        public void setTpsTimeSeries(Map<Instant, Double> tpsTimeSeries) { this.tpsTimeSeries = tpsTimeSeries; }
+        public Map<Instant, Double> getLatencyTimeSeries() { return latencyTimeSeries; }
+        public void setLatencyTimeSeries(Map<Instant, Double> latencyTimeSeries) { this.latencyTimeSeries = latencyTimeSeries; }
+        public Map<Instant, Double> getSuccessRateTimeSeries() { return successRateTimeSeries; }
+        public void setSuccessRateTimeSeries(Map<Instant, Double> successRateTimeSeries) { this.successRateTimeSeries = successRateTimeSeries; }
+        public double getAverageTPS() { return averageTPS; }
+        public void setAverageTPS(double averageTPS) { this.averageTPS = averageTPS; }
+        public double getPeakTPS() { return peakTPS; }
+        public void setPeakTPS(double peakTPS) { this.peakTPS = peakTPS; }
+        public double getMinTPS() { return minTPS; }
+        public void setMinTPS(double minTPS) { this.minTPS = minTPS; }
+        public double getAverageLatency() { return averageLatency; }
+        public void setAverageLatency(double averageLatency) { this.averageLatency = averageLatency; }
+        public double getP95Latency() { return p95Latency; }
+        public void setP95Latency(double p95Latency) { this.p95Latency = p95Latency; }
+        public double getP99Latency() { return p99Latency; }
+        public void setP99Latency(double p99Latency) { this.p99Latency = p99Latency; }
+    }
+
+    public static class PerformanceMetrics {
+        private double tps;
+        private double latency;
+        private double successRate;
+        private Instant timestamp;
+
+        public double getTps() { return tps; }
+        public void setTps(double tps) { this.tps = tps; }
+        public double getLatency() { return latency; }
+        public void setLatency(double latency) { this.latency = latency; }
+        public double getSuccessRate() { return successRate; }
+        public void setSuccessRate(double successRate) { this.successRate = successRate; }
+        public Instant getTimestamp() { return timestamp; }
+        public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }
+    }
+}

@@ -1,0 +1,179 @@
+[
+  {
+    "name": "io.aurigraph.v11.AurigraphResource",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "io.aurigraph.v11.TransactionService",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "io.aurigraph.v11.MyLivenessCheck",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "io.aurigraph.v11.consensus.HyperRAFTConsensusService",
+    "allDeclaredConstructors": true,
+    "methods": [
+      {"name": "processTransaction", "parameterTypes": []},
+      {"name": "validateConsensus", "parameterTypes": []},
+      {"name": "electLeader", "parameterTypes": []}
+    ]
+  },
+  {
+    "name": "io.aurigraph.v11.crypto.QuantumCryptoService",
+    "allDeclaredConstructors": true,
+    "methods": [
+      {"name": "encrypt", "parameterTypes": ["byte[]"]},
+      {"name": "decrypt", "parameterTypes": ["byte[]"]},
+      {"name": "sign", "parameterTypes": ["byte[]"]},
+      {"name": "verify", "parameterTypes": ["byte[]", "byte[]"]}
+    ]
+  },
+  {
+    "name": "io.aurigraph.v11.crypto.DilithiumSignatureService",
+    "allDeclaredConstructors": true,
+    "methods": [
+      {"name": "generateKeyPair", "parameterTypes": []},
+      {"name": "sign", "parameterTypes": ["byte[]"]},
+      {"name": "verify", "parameterTypes": ["byte[]", "byte[]"]}
+    ]
+  },
+  {
+    "name": "io.aurigraph.v11.ai.AIOptimizationService",
+    "allDeclaredConstructors": true,
+    "methods": [
+      {"name": "optimizeConsensus", "parameterTypes": []},
+      {"name": "predictTransactionLoad", "parameterTypes": []},
+      {"name": "detectAnomalies", "parameterTypes": ["java.util.List"]}
+    ]
+  },
+  {
+    "name": "io.aurigraph.v11.hms.HMSIntegrationService",
+    "allDeclaredConstructors": true,
+    "methods": [
+      {"name": "tokenizeAsset", "parameterTypes": ["java.lang.String"]},
+      {"name": "validateHealthData", "parameterTypes": ["java.lang.String"]}
+    ]
+  },
+  {
+    "name": "io.aurigraph.v11.grpc.HighPerformanceGrpcService",
+    "allDeclaredConstructors": true,
+    "allPublicMethods": true
+  },
+  {
+    "name": "org.bouncycastle.pqc.crypto.crystals.kyber.KyberKeyGenerationParameters",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.bouncycastle.pqc.crypto.crystals.dilithium.DilithiumKeyGenerationParameters",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.bouncycastle.pqc.crypto.sphincsplus.SPHINCSPlusKeyGenerationParameters",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "org.bouncycastle.pqc.crypto.crystals.kyber.KyberEngine",
+    "allDeclaredConstructors": true,
+    "methods": [
+      {"name": "generateKeyPair", "parameterTypes": []},
+      {"name": "encrypt", "parameterTypes": ["byte[]"]},
+      {"name": "decrypt", "parameterTypes": ["byte[]"]}
+    ]
+  },
+  {
+    "name": "org.bouncycastle.pqc.crypto.crystals.dilithium.DilithiumEngine",
+    "allDeclaredConstructors": true,
+    "methods": [
+      {"name": "generateKeyPair", "parameterTypes": []},
+      {"name": "sign", "parameterTypes": ["byte[]"]},
+      {"name": "verify", "parameterTypes": ["byte[]", "byte[]"]}
+    ]
+  },
+  {
+    "name": "org.bouncycastle.crypto.engines.AESEngine",
+    "allDeclaredConstructors": true,
+    "methods": [
+      {"name": "init", "parameterTypes": ["boolean", "org.bouncycastle.crypto.CipherParameters"]},
+      {"name": "processBlock", "parameterTypes": ["byte[]", "int", "byte[]", "int"]}
+    ]
+  },
+  {
+    "name": "org.bouncycastle.crypto.digests.SHA3Digest",
+    "allDeclaredConstructors": true,
+    "methods": [
+      {"name": "update", "parameterTypes": ["byte[]", "int", "int"]},
+      {"name": "doFinal", "parameterTypes": ["byte[]", "int"]}
+    ]
+  },
+  {
+    "name": "io.netty.channel.epoll.EpollEventLoopGroup",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.netty.channel.nio.NioEventLoopGroup",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.grpc.netty.shaded.io.netty.channel.epoll.EpollEventLoopGroup",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "java.util.concurrent.CompletableFuture",
+    "allDeclaredConstructors": true,
+    "methods": [
+      {"name": "supplyAsync", "parameterTypes": ["java.util.function.Supplier"]},
+      {"name": "thenApply", "parameterTypes": ["java.util.function.Function"]},
+      {"name": "join", "parameterTypes": []}
+    ]
+  },
+  {
+    "name": "java.util.concurrent.atomic.AtomicLong",
+    "allDeclaredConstructors": true,
+    "methods": [
+      {"name": "get", "parameterTypes": []},
+      {"name": "set", "parameterTypes": ["long"]},
+      {"name": "incrementAndGet", "parameterTypes": []}
+    ]
+  },
+  {
+    "name": "java.util.concurrent.atomic.AtomicInteger",
+    "allDeclaredConstructors": true,
+    "methods": [
+      {"name": "get", "parameterTypes": []},
+      {"name": "set", "parameterTypes": ["int"]},
+      {"name": "incrementAndGet", "parameterTypes": []}
+    ]
+  },
+  {
+    "name": "java.util.concurrent.ConcurrentHashMap",
+    "allDeclaredConstructors": true,
+    "methods": [
+      {"name": "put", "parameterTypes": ["java.lang.Object", "java.lang.Object"]},
+      {"name": "get", "parameterTypes": ["java.lang.Object"]},
+      {"name": "remove", "parameterTypes": ["java.lang.Object"]}
+    ]
+  },
+  {
+    "name": "java.security.SecureRandom",
+    "allDeclaredConstructors": true,
+    "methods": [
+      {"name": "nextBytes", "parameterTypes": ["byte[]"]},
+      {"name": "getInstance", "parameterTypes": ["java.lang.String"]}
+    ]
+  },
+  {
+    "name": "java.lang.VirtualThread",
+    "methods": [
+      {"name": "ofVirtual", "parameterTypes": []}
+    ]
+  },
+  {
+    "name": "sun.security.provider.NativePRNG",
+    "allDeclaredConstructors": true
+  }
+]

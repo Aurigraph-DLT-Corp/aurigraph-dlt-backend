@@ -1,0 +1,214 @@
+package io.aurigraph.grpc.service;
+
+import com.google.protobuf.Timestamp;
+import io.aurigraph.v11.channels.LiveChannelDataService;
+import io.aurigraph.v11.proto.ChannelAnalytics;
+import io.aurigraph.v11.proto.ChannelBlockEvent;
+import io.aurigraph.v11.proto.ChannelCommand;
+import io.aurigraph.v11.proto.ChannelEventStream;
+import io.aurigraph.v11.proto.ChannelHistoricalQuery;
+import io.aurigraph.v11.proto.ChannelHistoricalResponse;
+import io.aurigraph.v11.proto.ChannelInfo;
+import io.aurigraph.v11.proto.ChannelListUpdate;
+import io.aurigraph.v11.proto.ChannelPerformanceUpdate;
+import io.aurigraph.v11.proto.ChannelStatistics;
+import io.aurigraph.v11.proto.ChannelStatus;
+import io.aurigraph.v11.proto.ChannelStreamService;
+import io.aurigraph.v11.proto.ChannelSubscribeRequest;
+import io.aurigraph.v11.proto.ChannelTransactionEvent;
+import io.aurigraph.v11.proto.ChannelType;
+import io.aurigraph.v11.proto.ChannelUnsubscribeRequest;
+import io.aurigraph.v11.proto.ChannelUnsubscribeResponse;
+import io.aurigraph.v11.proto.ParticipantEvent;
+import io.quarkus.grpc.GrpcService;
+import io.smallrye.mutiny.Multi;
+import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
+import jakarta.inject.Inject;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+@GrpcService
+public class ChannelStreamServiceImpl implements ChannelStreamService {
+
+    @Inject
+    LiveChannelDataService liveChannelDataService;
+
+    @Override
+    public Uni<ChannelInfo> getChannelInfo(ChannelSubscribeRequest request) {
+        String channelId = request.getChannelIdsCount() > 0 ? request.getChannelIds(0) : null;
+        if (channelId == null) {
+            return Uni.createFrom().failure(new IllegalArgumentException("Channel ID required"));
+        }
+
+        LiveChannelDataService.ChannelData data = liveChannelDataService.getChannel(channelId);
+        if (data == null) {
+            return Uni.createFrom().failure(new IllegalArgumentException("Channel not found"));
+        }
+
+        return Uni.createFrom().item(mapToChannelInfo(data));
+    }
+
+    @Override
+    public Uni<ChannelListUpdate> listChannels(ChannelSubscribeRequest request) {
+        List<LiveChannelDataService.ChannelData> channels = liveChannelDataService.getAllChannels();
+
+        List<ChannelInfo> channelInfos = channels.stream()
+                .map(this::mapToChannelInfo)
+                .collect(Collectors.toList());
+
+        return Uni.createFrom().item(ChannelListUpdate.newBuilder()
+                .addAllChannels(channelInfos)
+                .setTotalChannels(channels.size())
+                .setActiveChannels((int) channels.stream().filter(c -> "active".equals(c.status)).count())
+                .setTimestamp(toTimestamp(Instant.now()))
+                .build());
+    }
+
+    @Override
+    public Multi<ChannelEventStream> streamChannelEvents(ChannelSubscribeRequest request) {
+        // Simulate event stream by polling channel data
+        return Multi.createFrom().ticks().every(Duration.ofMillis(request.getUpdateIntervalMs() > 0 ? request.getUpdateIntervalMs() : 1000))
+                .onItem().transform(tick -> {
+                    // In a real implementation, we would fetch actual events
+                    // Here we just emit a performance update as an event
+                    String channelId = request.getChannelIdsCount() > 0 ? request.getChannelIds(0) : "CH_MAIN_001";
+                    LiveChannelDataService.ChannelData data = liveChannelDataService.getChannel(channelId);
+
+                    if (data == null) return null;
+
+                    return ChannelEventStream.newBuilder()
+                            .setTimestamp(toTimestamp(Instant.now()))
+                            .setEventId(UUID.randomUUID().toString())
+                            .setChannelId(channelId)
+                            .setPerformance(mapToPerformanceUpdate(data))
+                            .build();
+                })
+                .select().where(item -> item != null)
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+    }
+
+    @Override
+    public Multi<ChannelTransactionEvent> streamChannelTransactions(ChannelSubscribeRequest request) {
+        return Multi.createFrom().empty(); // Placeholder
+    }
+
+    @Override
+    public Multi<ChannelBlockEvent> streamChannelBlocks(ChannelSubscribeRequest request) {
+        return Multi.createFrom().empty(); // Placeholder
+    }
+
+    @Override
+    public Multi<ChannelPerformanceUpdate> streamChannelPerformance(ChannelSubscribeRequest request) {
+        return Multi.createFrom().ticks().every(Duration.ofMillis(request.getUpdateIntervalMs() > 0 ? request.getUpdateIntervalMs() : 1000))
+                .onItem().transform(tick -> {
+                    String channelId = request.getChannelIdsCount() > 0 ? request.getChannelIds(0) : "CH_MAIN_001";
+                    LiveChannelDataService.ChannelData data = liveChannelDataService.getChannel(channelId);
+
+                    if (data == null) return null;
+
+                    return mapToPerformanceUpdate(data);
+                })
+                .select().where(item -> item != null)
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+    }
+
+    @Override
+    public Multi<ParticipantEvent> streamParticipantEvents(ChannelSubscribeRequest request) {
+        return Multi.createFrom().empty(); // Placeholder
+    }
+
+    @Override
+    public Multi<ChannelEventStream> interactiveChannelMonitor(Multi<ChannelCommand> request) {
+        return request.onItem().transformToMulti(cmd -> streamChannelEvents(ChannelSubscribeRequest.newBuilder().build()));
+    }
+
+    @Override
+    public Uni<ChannelHistoricalResponse> queryHistoricalEvents(ChannelHistoricalQuery request) {
+        return Uni.createFrom().item(ChannelHistoricalResponse.newBuilder()
+                .setTotalEvents(0)
+                .setQueryExecutedAt(toTimestamp(Instant.now()))
+                .build());
+    }
+
+    @Override
+    public Uni<ChannelAnalytics> getChannelAnalytics(ChannelHistoricalQuery request) {
+        LiveChannelDataService.ChannelData data = liveChannelDataService.getChannel(request.getChannelId());
+        if (data == null) {
+            return Uni.createFrom().failure(new IllegalArgumentException("Channel not found"));
+        }
+
+        return Uni.createFrom().item(ChannelAnalytics.newBuilder()
+                .setChannelId(data.channelId)
+                .setTotalTransactions(data.totalTransactions)
+                .setTotalParticipants(data.nodeCount)
+                .build());
+    }
+
+    @Override
+    public Uni<ChannelUnsubscribeResponse> unsubscribe(ChannelUnsubscribeRequest request) {
+        return Uni.createFrom().item(ChannelUnsubscribeResponse.newBuilder()
+                .setSuccess(true)
+                .setMessage("Unsubscribed")
+                .setEndedAt(toTimestamp(Instant.now()))
+                .build());
+    }
+
+    private ChannelInfo mapToChannelInfo(LiveChannelDataService.ChannelData data) {
+        return ChannelInfo.newBuilder()
+                .setChannelId(data.channelId)
+                .setChannelName(data.name)
+                .setChannelType(mapChannelType(data.type))
+                .setStatus(mapChannelStatus(data.status))
+                .setCreatedAt(toTimestamp(data.createdAt))
+                .setLastActivity(toTimestamp(data.lastUpdated))
+                .setStatistics(ChannelStatistics.newBuilder()
+                        .setTotalTransactions(data.totalTransactions)
+                        .setAverageTps(data.currentTps)
+                        .setActiveContracts(data.activeContracts)
+                        .setStorageUsedBytes(data.storageUsed)
+                        .build())
+                .setParticipantCount(data.nodeCount)
+                .build();
+    }
+
+    private ChannelPerformanceUpdate mapToPerformanceUpdate(LiveChannelDataService.ChannelData data) {
+        return ChannelPerformanceUpdate.newBuilder()
+                .setChannelId(data.channelId)
+                .setCurrentTps(data.currentTps)
+                .setPeakTps(data.targetTps) // Using target as peak for now
+                .setStorageUsedBytes(data.storageUsed)
+                .setTimestamp(toTimestamp(Instant.now()))
+                .build();
+    }
+
+    private ChannelType mapChannelType(String type) {
+        switch (type.toLowerCase()) {
+            case "public": return ChannelType.PUBLIC;
+            case "private": return ChannelType.PRIVATE;
+            case "consortium": return ChannelType.CONSORTIUM;
+            default: return ChannelType.SYSTEM;
+        }
+    }
+
+    private ChannelStatus mapChannelStatus(String status) {
+        switch (status.toLowerCase()) {
+            case "active": return ChannelStatus.ACTIVE;
+            case "suspended": return ChannelStatus.SUSPENDED;
+            case "closed": return ChannelStatus.CLOSED;
+            default: return ChannelStatus.ARCHIVED;
+        }
+    }
+
+    private Timestamp toTimestamp(Instant instant) {
+        if (instant == null) return Timestamp.getDefaultInstance();
+        return Timestamp.newBuilder()
+                .setSeconds(instant.getEpochSecond())
+                .setNanos(instant.getNano())
+                .build();
+    }
+}

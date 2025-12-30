@@ -1,0 +1,364 @@
+{
+  "dashboard": {
+    "title": "Aurigraph V11 - Transaction Performance",
+    "tags": ["aurigraph", "v11", "transactions", "performance"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "5s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "type": "graph",
+        "title": "Transactions Per Second (TPS)",
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 24,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "rate(aurigraph_transactions_processed_total[1m])",
+            "legendFormat": "Processed TPS"
+          },
+          {
+            "expr": "rate(aurigraph_transactions_total[1m])",
+            "legendFormat": "Total TPS"
+          },
+          {
+            "expr": "rate(aurigraph_transactions_failed_total[1m])",
+            "legendFormat": "Failed TPS"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ops",
+            "label": "Transactions/sec"
+          }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [100000],
+                "type": "lt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": ["A", "5m", "now"]
+              },
+              "reducer": {
+                "params": [],
+                "type": "avg"
+              },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "1m",
+          "handler": 1,
+          "name": "TPS Below Target",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 2,
+        "type": "graph",
+        "title": "Transaction Latency (P50, P95, P99)",
+        "gridPos": {
+          "x": 0,
+          "y": 8,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(aurigraph_transaction_duration_seconds_bucket[5m]))",
+            "legendFormat": "P50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(aurigraph_transaction_duration_seconds_bucket[5m]))",
+            "legendFormat": "P95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(aurigraph_transaction_duration_seconds_bucket[5m]))",
+            "legendFormat": "P99"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "s",
+            "label": "Latency"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "type": "graph",
+        "title": "Transaction Queue Size",
+        "gridPos": {
+          "x": 12,
+          "y": 8,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "aurigraph_transaction_queue_size",
+            "legendFormat": "{{instance}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "short",
+            "label": "Queue Size"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "type": "graph",
+        "title": "Transaction Success/Failure Rate",
+        "gridPos": {
+          "x": 0,
+          "y": 16,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "(rate(aurigraph_transactions_processed_total[5m]) / rate(aurigraph_transactions_total[5m])) * 100",
+            "legendFormat": "Success Rate %"
+          },
+          {
+            "expr": "(rate(aurigraph_transactions_failed_total[5m]) / rate(aurigraph_transactions_total[5m])) * 100",
+            "legendFormat": "Failure Rate %"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "percent",
+            "label": "Rate %",
+            "min": 0,
+            "max": 100
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "type": "graph",
+        "title": "Invalid Transaction Rate",
+        "gridPos": {
+          "x": 12,
+          "y": 16,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "(rate(aurigraph_transactions_invalid_total[5m]) / rate(aurigraph_transactions_total[5m])) * 100",
+            "legendFormat": "Invalid %"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "percent",
+            "label": "Invalid Rate %",
+            "min": 0
+          }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [5],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": ["A", "5m", "now"]
+              },
+              "reducer": {
+                "params": [],
+                "type": "avg"
+              },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "1m",
+          "handler": 1,
+          "name": "High Invalid Transaction Rate",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 6,
+        "type": "stat",
+        "title": "Total Transactions Processed (24h)",
+        "gridPos": {
+          "x": 0,
+          "y": 24,
+          "w": 8,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "sum(increase(aurigraph_transactions_processed_total[24h]))",
+            "legendFormat": "Total"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0
+          }
+        }
+      },
+      {
+        "id": 7,
+        "type": "stat",
+        "title": "Average TPS (1h)",
+        "gridPos": {
+          "x": 8,
+          "y": 24,
+          "w": 8,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "avg(rate(aurigraph_transactions_processed_total[1h]))",
+            "legendFormat": "Avg TPS"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "decimals": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "value": 0,
+                  "color": "red"
+                },
+                {
+                  "value": 500000,
+                  "color": "yellow"
+                },
+                {
+                  "value": 1000000,
+                  "color": "green"
+                },
+                {
+                  "value": 2000000,
+                  "color": "blue"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 8,
+        "type": "stat",
+        "title": "Peak TPS (1h)",
+        "gridPos": {
+          "x": 16,
+          "y": 24,
+          "w": 8,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "max_over_time(rate(aurigraph_transactions_processed_total[1m])[1h:])",
+            "legendFormat": "Peak TPS"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ops",
+            "decimals": 0
+          }
+        }
+      },
+      {
+        "id": 9,
+        "type": "table",
+        "title": "Transaction Statistics by Type",
+        "gridPos": {
+          "x": 0,
+          "y": 28,
+          "w": 24,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "sum by (type) (rate(aurigraph_transactions_total[5m]))",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true
+              },
+              "indexByName": {
+                "type": 0,
+                "Value": 1
+              },
+              "renameByName": {
+                "type": "Transaction Type",
+                "Value": "TPS"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "overwrite": true
+}

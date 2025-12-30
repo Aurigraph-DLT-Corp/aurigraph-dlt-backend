@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aurigraph V11 - Real-Time Monitoring Dashboard</title>
+    
+    <!-- React and dependencies -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Custom monitoring script -->
+    <script src="js/monitoring.js"></script>
+    
+    <style>
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 1.5rem;
+            color: white;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            transition: transform 0.2s ease;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .status-healthy {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        
+        .status-warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .status-critical {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+        }
+        
+        .chart-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        .glow-effect {
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #667eea 100%);
+            min-height: 100vh;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        
+        .loading-spinner {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+    </style>
+</head>
+<body>
+    <div id="dashboard-root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback } = React;
+
+        // Main Dashboard Component
+        function AurigraphDashboard() {
+            const [metrics, setMetrics] = useState({
+                platform: { status: 'LOADING', version: '11.0.0', uptime: 0, requests: 0 },
+                performance: { currentTPS: 0, totalTransactions: 0, efficiency: 0, avgResponseTime: 0 },
+                consensus: { status: 'UNKNOWN', leaderElections: 0, lastHeartbeat: 0 },
+                gateway: { totalRequests: 0, rateLimited: 0, authFailures: 0, throughput: 0 },
+                services: {
+                    transaction: { status: 'UNKNOWN', processed: 0 },
+                    crypto: { status: 'UNKNOWN', operations: 0 },
+                    bridge: { status: 'UNKNOWN', transfers: 0 },
+                    hms: { status: 'UNKNOWN', integrations: 0 },
+                    ai: { status: 'UNKNOWN', optimizations: 0 }
+                }
+            });
+            
+            const [lastUpdate, setLastUpdate] = useState(Date.now());
+            const [isConnected, setIsConnected] = useState(false);
+            const [error, setError] = useState(null);
+
+            // Fetch metrics from API
+            const fetchMetrics = useCallback(async () => {
+                try {
+                    const [platformRes, performanceRes, gatewayRes] = await Promise.all([
+                        fetch('/api/v11/status'),
+                        fetch('/api/v11/performance/metrics'),
+                        fetch('/gateway/metrics')
+                    ]);
+
+                    if (platformRes.ok && performanceRes.ok && gatewayRes.ok) {
+                        const platformData = await platformRes.json();
+                        const performanceData = await performanceRes.json();
+                        const gatewayData = await gatewayRes.json();
+
+                        setMetrics(prev => ({
+                            ...prev,
+                            platform: {
+                                status: platformData.status || 'HEALTHY',
+                                version: platformData.version || '11.0.0',
+                                uptime: platformData.uptimeSeconds || 0,
+                                requests: platformData.totalRequests || 0
+                            },
+                            performance: {
+                                currentTPS: performanceData.currentTPS || 0,
+                                totalTransactions: performanceData.totalTransactions || 0,
+                                efficiency: performanceData.throughputEfficiency || 0,
+                                avgResponseTime: performanceData.averageResponseTimeMs || 0
+                            },
+                            gateway: {
+                                totalRequests: gatewayData.totalRequests || 0,
+                                rateLimited: gatewayData.rateLimitedRequests || 0,
+                                authFailures: gatewayData.authenticationFailures || 0,
+                                throughput: gatewayData.currentThroughput || 0
+                            }
+                        }));
+
+                        setIsConnected(true);
+                        setError(null);
+                    } else {
+                        throw new Error('Failed to fetch metrics');
+                    }
+                } catch (err) {
+                    console.error('Metrics fetch error:', err);
+                    setError(err.message);
+                    setIsConnected(false);
+                }
+                
+                setLastUpdate(Date.now());
+            }, []);
+
+            // Auto-refresh metrics
+            useEffect(() => {
+                fetchMetrics();
+                const interval = setInterval(fetchMetrics, 2000); // Update every 2 seconds
+                return () => clearInterval(interval);
+            }, [fetchMetrics]);
+
+            const formatNumber = (num) => {
+                if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+                if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+                return num.toLocaleString();
+            };
+
+            const formatUptime = (seconds) => {
+                const hours = Math.floor(seconds / 3600);
+                const minutes = Math.floor((seconds % 3600) / 60);
+                const secs = seconds % 60;
+                return `${hours}h ${minutes}m ${secs}s`;
+            };
+
+            const getStatusColor = (status) => {
+                switch (status) {
+                    case 'HEALTHY': case 'ACTIVE': case 'UP': return 'status-healthy';
+                    case 'WARNING': case 'DEGRADED': return 'status-warning';
+                    case 'CRITICAL': case 'DOWN': case 'ERROR': return 'status-critical';
+                    default: return 'status-warning';
+                }
+            };
+
+            return (
+                <div className="min-h-screen p-6">
+                    {/* Header */}
+                    <div className="mb-8">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h1 className="text-4xl font-bold text-white mb-2">
+                                    Aurigraph V11 Platform
+                                </h1>
+                                <p className="text-blue-200 text-lg">
+                                    High-Performance Blockchain Monitoring Dashboard
+                                </p>
+                            </div>
+                            <div className="text-right">
+                                <div className={`inline-flex items-center px-4 py-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'} text-white`}>
+                                    <div className={`w-2 h-2 rounded-full mr-2 ${isConnected ? 'bg-green-200 pulse-animation' : 'bg-red-200'}`}></div>
+                                    {isConnected ? 'Connected' : 'Disconnected'}
+                                </div>
+                                <p className="text-blue-200 text-sm mt-1">
+                                    Last update: {new Date(lastUpdate).toLocaleTimeString()}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Error Banner */}
+                    {error && (
+                        <div className="bg-red-500 text-white p-4 rounded-lg mb-6 flex items-center">
+                            <div className="w-4 h-4 rounded-full bg-red-200 mr-3"></div>
+                            <span>Error: {error}</span>
+                        </div>
+                    )}
+
+                    {/* Main Metrics Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        {/* Platform Status */}
+                        <div className={`metric-card ${getStatusColor(metrics.platform.status)} glow-effect`}>
+                            <h3 className="text-lg font-semibold mb-2">Platform Status</h3>
+                            <div className="text-3xl font-bold mb-1">{metrics.platform.status}</div>
+                            <div className="text-sm opacity-90">
+                                v{metrics.platform.version} • {formatUptime(metrics.platform.uptime)}
+                            </div>
+                        </div>
+
+                        {/* Current TPS */}
+                        <div className="metric-card">
+                            <h3 className="text-lg font-semibold mb-2">Current TPS</h3>
+                            <div className="text-3xl font-bold mb-1">{formatNumber(Math.round(metrics.performance.currentTPS))}</div>
+                            <div className="text-sm opacity-90">
+                                Target: 2M+ TPS • Efficiency: {(metrics.performance.efficiency * 100).toFixed(1)}%
+                            </div>
+                        </div>
+
+                        {/* Total Transactions */}
+                        <div className="metric-card">
+                            <h3 className="text-lg font-semibold mb-2">Total Transactions</h3>
+                            <div className="text-3xl font-bold mb-1">{formatNumber(metrics.performance.totalTransactions)}</div>
+                            <div className="text-sm opacity-90">
+                                Requests: {formatNumber(metrics.platform.requests)}
+                            </div>
+                        </div>
+
+                        {/* Gateway Health */}
+                        <div className="metric-card">
+                            <h3 className="text-lg font-semibold mb-2">Gateway Health</h3>
+                            <div className="text-3xl font-bold mb-1">{formatNumber(metrics.gateway.totalRequests)}</div>
+                            <div className="text-sm opacity-90">
+                                Rate Limited: {metrics.gateway.rateLimited} • Auth Fails: {metrics.gateway.authFailures}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Service Status Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                        <div className="chart-container">
+                            <h3 className="text-xl font-bold text-gray-800 mb-4">Service Health Matrix</h3>
+                            <div className="space-y-3">
+                                {Object.entries(metrics.services).map(([service, data]) => (
+                                    <div key={service} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                        <div className="flex items-center">
+                                            <div className={`w-3 h-3 rounded-full mr-3 ${getStatusColor(data.status).replace('status-', 'bg-')}`}></div>
+                                            <span className="font-medium capitalize">{service} Service</span>
+                                        </div>
+                                        <span className="text-sm text-gray-600">{data.status}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="chart-container">
+                            <h3 className="text-xl font-bold text-gray-800 mb-4">Performance Metrics</h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <div className="flex justify-between text-sm mb-1">
+                                        <span>TPS Efficiency</span>
+                                        <span>{(metrics.performance.efficiency * 100).toFixed(1)}%</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                        <div 
+                                            className="bg-blue-600 h-2 rounded-full transition-all duration-500" 
+                                            style={{width: `${metrics.performance.efficiency * 100}%`}}
+                                        ></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="flex justify-between text-sm mb-1">
+                                        <span>Response Time</span>
+                                        <span>{metrics.performance.avgResponseTime.toFixed(2)}ms</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                        <div 
+                                            className="bg-green-600 h-2 rounded-full transition-all duration-500" 
+                                            style={{width: `${Math.min(100, 100 - (metrics.performance.avgResponseTime / 10))}%`}}
+                                        ></div>
+                                    </div>
+                                </div>
+                                <div className="text-center text-2xl font-bold text-green-600">
+                                    {formatNumber(Math.round(metrics.performance.currentTPS))} TPS
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="chart-container">
+                            <h3 className="text-xl font-bold text-gray-800 mb-4">Gateway Statistics</h3>
+                            <div className="space-y-4">
+                                <div className="flex justify-between">
+                                    <span>Total Requests</span>
+                                    <span className="font-bold">{formatNumber(metrics.gateway.totalRequests)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span>Rate Limited</span>
+                                    <span className="font-bold text-yellow-600">{metrics.gateway.rateLimited}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span>Auth Failures</span>
+                                    <span className="font-bold text-red-600">{metrics.gateway.authFailures}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span>Throughput</span>
+                                    <span className="font-bold text-blue-600">{formatNumber(Math.round(metrics.gateway.throughput))} req/s</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Real-time Charts Section */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="chart-container">
+                            <h3 className="text-xl font-bold text-gray-800 mb-4">TPS Performance Chart</h3>
+                            <canvas id="tpsChart" width="400" height="200"></canvas>
+                        </div>
+
+                        <div className="chart-container">
+                            <h3 className="text-xl font-bold text-gray-800 mb-4">System Resource Usage</h3>
+                            <canvas id="resourceChart" width="400" height="200"></canvas>
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="mt-8 text-center text-blue-200">
+                        <p>Aurigraph V11 - High-Performance Blockchain Platform</p>
+                        <p className="text-sm">Real-time monitoring for 2M+ TPS • Java 21 + Quarkus + GraalVM</p>
+                    </div>
+                </div>
+            );
+        }
+
+        // Render the dashboard
+        ReactDOM.render(<AurigraphDashboard />, document.getElementById('dashboard-root'));
+
+        // Initialize charts after React renders
+        setTimeout(() => {
+            if (window.initializeCharts) {
+                window.initializeCharts();
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

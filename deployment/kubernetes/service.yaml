@@ -1,0 +1,379 @@
+# Aurigraph V11 Kubernetes Service Definitions
+# Provides comprehensive service mesh and load balancing
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: aurigraph-v11-service
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: dlt-platform
+    version: "11.0.0"
+    service-type: external
+  annotations:
+    # AWS Load Balancer Configuration
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    
+    # Health Check Configuration
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: "/q/health/ready"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: "9003"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: "HTTP"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval: "30"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout: "10"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold: "2"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold: "3"
+    
+    # Performance Optimization
+    service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: "300"
+    service.beta.kubernetes.io/aws-load-balancer-connection-draining-timeout: "300"
+    
+    # Metrics and Monitoring
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9003"
+    prometheus.io/path: "/q/metrics"
+spec:
+  type: LoadBalancer
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800  # 3 hours for consensus stability
+  
+  ports:
+  - name: http-api
+    port: 9003
+    targetPort: 9003
+    protocol: TCP
+    appProtocol: http
+  - name: grpc-service
+    port: 9004
+    targetPort: 9004
+    protocol: TCP
+    appProtocol: grpc
+  - name: metrics
+    port: 8080
+    targetPort: 9003
+    protocol: TCP
+    appProtocol: http
+  
+  selector:
+    app: aurigraph-v11
+    deployment-type: native
+  
+  # External Traffic Policy for performance
+  externalTrafficPolicy: Local
+
+---
+# Headless Service for Internal Communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: aurigraph-v11-headless
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: dlt-platform
+    service-type: headless
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9003"
+    prometheus.io/path: "/q/metrics"
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  
+  ports:
+  - name: http
+    port: 9003
+    targetPort: 9003
+    protocol: TCP
+  - name: grpc
+    port: 9004
+    targetPort: 9004
+    protocol: TCP
+  - name: consensus-raft
+    port: 9005
+    targetPort: 9005
+    protocol: TCP
+  
+  selector:
+    app: aurigraph-v11
+    deployment-type: native
+
+---
+# Internal gRPC Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: aurigraph-v11-grpc
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: grpc-service
+    service-type: internal
+spec:
+  type: ClusterIP
+  
+  ports:
+  - name: grpc-high-performance
+    port: 9004
+    targetPort: 9004
+    protocol: TCP
+    appProtocol: grpc
+  - name: grpc-hms
+    port: 9005
+    targetPort: 9005
+    protocol: TCP
+    appProtocol: grpc
+  
+  selector:
+    app: aurigraph-v11
+    deployment-type: native
+
+---
+# Metrics Service for Prometheus
+apiVersion: v1
+kind: Service
+metadata:
+  name: aurigraph-v11-metrics
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: metrics
+    service-type: monitoring
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9003"
+    prometheus.io/path: "/q/metrics"
+spec:
+  type: ClusterIP
+  
+  ports:
+  - name: metrics-http
+    port: 9003
+    targetPort: 9003
+    protocol: TCP
+    appProtocol: http
+  
+  selector:
+    app: aurigraph-v11
+    deployment-type: native
+
+---
+# NodePort Service for Development/Testing
+apiVersion: v1
+kind: Service
+metadata:
+  name: aurigraph-v11-nodeport
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: dlt-platform
+    service-type: nodeport
+    environment: development
+spec:
+  type: NodePort
+  
+  ports:
+  - name: http-api
+    port: 9003
+    targetPort: 9003
+    nodePort: 30903
+    protocol: TCP
+  - name: grpc-service
+    port: 9004
+    targetPort: 9004
+    nodePort: 30904
+    protocol: TCP
+  
+  selector:
+    app: aurigraph-v11
+    deployment-type: native
+
+---
+# Service Monitor for Prometheus Operator
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: aurigraph-v11-monitor
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: aurigraph-v11
+      component: dlt-platform
+  
+  endpoints:
+  - port: metrics-http
+    path: /q/metrics
+    interval: 30s
+    scrapeTimeout: 10s
+    
+    # Relabeling for better metrics organization
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_name]
+      targetLabel: pod_name
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: node_name
+    - sourceLabels: [__meta_kubernetes_namespace]
+      targetLabel: kubernetes_namespace
+    
+  namespaceSelector:
+    matchNames:
+    - aurigraph-system
+
+---
+# Ingress Configuration for External Access
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aurigraph-v11-ingress
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: ingress
+  annotations:
+    # NGINX Ingress Controller Configuration
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    
+    # Rate Limiting for DDoS Protection
+    nginx.ingress.kubernetes.io/rate-limit: "1000"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    
+    # Connection and Request Limits
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300" 
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-body-size: "32m"
+    
+    # HTTP/2 and Performance
+    nginx.ingress.kubernetes.io/http2-push-preload: "true"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://dlt.aurigraph.io,https://dev4.aurex.in"
+    
+    # Health Check
+    nginx.ingress.kubernetes.io/health-check-path: "/q/health/ready"
+    nginx.ingress.kubernetes.io/health-check-timeout: "10"
+    
+    # Certificate Management
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  
+  tls:
+  - hosts:
+    - api.aurigraph.io
+    - dlt.aurigraph.io
+    secretName: aurigraph-v11-tls-cert
+  
+  rules:
+  - host: api.aurigraph.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: aurigraph-v11-service
+            port:
+              number: 9003
+  - host: dlt.aurigraph.io
+    http:
+      paths:
+      - path: /api/v11
+        pathType: Prefix
+        backend:
+          service:
+            name: aurigraph-v11-service
+            port:
+              number: 9003
+      - path: /grpc
+        pathType: Prefix
+        backend:
+          service:
+            name: aurigraph-v11-grpc
+            port:
+              number: 9004
+
+---
+# Network Policy for Security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: aurigraph-v11-network-policy
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: security
+spec:
+  podSelector:
+    matchLabels:
+      app: aurigraph-v11
+  
+  policyTypes:
+  - Ingress
+  - Egress
+  
+  ingress:
+  # Allow traffic from ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 9003
+    - protocol: TCP
+      port: 9004
+  
+  # Allow traffic from monitoring namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 9003
+  
+  # Allow internal cluster communication
+  - from:
+    - podSelector:
+        matchLabels:
+          app: aurigraph-v11
+    ports:
+    - protocol: TCP
+      port: 9003
+    - protocol: TCP
+      port: 9004
+    - protocol: TCP
+      port: 9005
+  
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  
+  # Allow HTTPS outbound for external APIs
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+  
+  # Allow internal cluster communication
+  - to:
+    - podSelector:
+        matchLabels:
+          app: aurigraph-v11

@@ -1,0 +1,147 @@
+{
+  "resources": {
+    "includes": [
+      {
+        "pattern": ".*\\.proto$"
+      },
+      {
+        "pattern": "application.*\\.properties$"
+      },
+      {
+        "pattern": "META-INF/services/.*"
+      },
+      {
+        "pattern": "META-INF/native-image/.*\\.json$"
+      },
+      {
+        "pattern": "META-INF/native-image/native-image\\.properties$"
+      },
+      {
+        "pattern": "aurigraph-v11\\.proto$"
+      },
+      {
+        "pattern": "hms-integration\\.proto$"
+      },
+      {
+        "pattern": "org/bouncycastle/crypto/.*\\.properties$"
+      },
+      {
+        "pattern": "org/bouncycastle/pqc/crypto/.*"
+      },
+      {
+        "pattern": "io/grpc/netty/shaded/.*\\.properties$"
+      },
+      {
+        "pattern": "io/netty/channel/.*\\.properties$"
+      },
+      {
+        "pattern": "org/deeplearning4j/config/.*\\.properties$"
+      },
+      {
+        "pattern": "org/nd4j/config/.*\\.properties$"
+      },
+      {
+        "pattern": "com/github/haifengl/smile/.*\\.properties$"
+      }
+    ],
+    "excludes": [
+      {
+        "pattern": ".*\\.class$"
+      },
+      {
+        "pattern": ".*\\.java$"
+      },
+      {
+        "pattern": ".*\\.scala$"
+      },
+      {
+        "pattern": ".*\\.kotlin$"
+      },
+      {
+        "pattern": ".*\\.md$"
+      },
+      {
+        "pattern": ".*\\.txt$"
+      },
+      {
+        "pattern": ".*\\.html$"
+      },
+      {
+        "pattern": ".*\\.css$"
+      },
+      {
+        "pattern": ".*\\.js$"
+      },
+      {
+        "pattern": ".*\\.xml$"
+      },
+      {
+        "pattern": ".*\\.yml$"
+      },
+      {
+        "pattern": ".*\\.yaml$"
+      },
+      {
+        "pattern": "META-INF/maven/.*"
+      },
+      {
+        "pattern": "META-INF/LICENSE.*"
+      },
+      {
+        "pattern": "META-INF/NOTICE.*"
+      },
+      {
+        "pattern": "META-INF/.*\\.txt$"
+      },
+      {
+        "pattern": "META-INF/.*\\.md$"
+      },
+      {
+        "pattern": ".*/test/.*"
+      },
+      {
+        "pattern": ".*/tests/.*"
+      },
+      {
+        "pattern": ".*/example/.*"
+      },
+      {
+        "pattern": ".*/examples/.*"
+      },
+      {
+        "pattern": ".*/demo/.*"
+      },
+      {
+        "pattern": ".*/demos/.*"
+      },
+      {
+        "pattern": ".*/doc/.*"
+      },
+      {
+        "pattern": ".*/docs/.*"
+      },
+      {
+        "pattern": "weka/gui/.*"
+      },
+      {
+        "pattern": "org/deeplearning4j/ui/.*"
+      }
+    ]
+  },
+  "bundles": [
+    {
+      "name": "io.aurigraph.v11.Messages",
+      "locales": ["en"]
+    }
+  ],
+  "globs": [
+    {
+      "glob": "*.proto",
+      "module": "aurigraph-v11"
+    },
+    {
+      "glob": "application*.properties",
+      "module": "aurigraph-v11"  
+    }
+  ]
+}

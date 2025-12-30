@@ -1,0 +1,167 @@
+{
+  "index_patterns": ["aurigraph-*"],
+  "version": 1,
+  "priority": 100,
+  "template": {
+    "settings": {
+      "number_of_shards": 3,
+      "number_of_replicas": 1,
+      "refresh_interval": "5s",
+      "index.codec": "best_compression",
+      "index.lifecycle.name": "aurigraph-ilm-policy",
+      "index.lifecycle.rollover_alias": "aurigraph-v11",
+      "analysis": {
+        "analyzer": {
+          "transaction_analyzer": {
+            "type": "custom",
+            "tokenizer": "standard",
+            "filter": ["lowercase", "stop"]
+          }
+        }
+      }
+    },
+    "mappings": {
+      "properties": {
+        "@timestamp": {
+          "type": "date"
+        },
+        "environment": {
+          "type": "keyword"
+        },
+        "platform": {
+          "type": "keyword"
+        },
+        "service": {
+          "type": "keyword"
+        },
+        "log_level": {
+          "type": "keyword"
+        },
+        "logger": {
+          "type": "keyword"
+        },
+        "thread": {
+          "type": "keyword"
+        },
+        "log_message": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
+        "transaction_id": {
+          "type": "keyword"
+        },
+        "transaction_status": {
+          "type": "keyword"
+        },
+        "transaction_type": {
+          "type": "keyword"
+        },
+        "from_address": {
+          "type": "keyword"
+        },
+        "to_address": {
+          "type": "keyword"
+        },
+        "amount": {
+          "type": "long"
+        },
+        "processing_time_ms": {
+          "type": "float"
+        },
+        "tps": {
+          "type": "float"
+        },
+        "p50_latency_ms": {
+          "type": "float"
+        },
+        "p95_latency_ms": {
+          "type": "float"
+        },
+        "p99_latency_ms": {
+          "type": "float"
+        },
+        "node_id": {
+          "type": "keyword"
+        },
+        "node_state": {
+          "type": "keyword"
+        },
+        "term": {
+          "type": "long"
+        },
+        "leader_id": {
+          "type": "keyword"
+        },
+        "commit_index": {
+          "type": "long"
+        },
+        "is_leader": {
+          "type": "boolean"
+        },
+        "bridge_id": {
+          "type": "keyword"
+        },
+        "source_chain": {
+          "type": "keyword"
+        },
+        "destination_chain": {
+          "type": "keyword"
+        },
+        "bridge_status": {
+          "type": "keyword"
+        },
+        "bridge_duration_ms": {
+          "type": "float"
+        },
+        "severity": {
+          "type": "keyword"
+        },
+        "event_type": {
+          "type": "keyword"
+        },
+        "user_id": {
+          "type": "keyword"
+        },
+        "ip_address": {
+          "type": "ip"
+        },
+        "client_ip": {
+          "type": "ip"
+        },
+        "geoip": {
+          "properties": {
+            "location": {
+              "type": "geo_point"
+            },
+            "country_name": {
+              "type": "keyword"
+            },
+            "city_name": {
+              "type": "keyword"
+            }
+          }
+        },
+        "exception_type": {
+          "type": "keyword"
+        },
+        "error_message": {
+          "type": "text"
+        },
+        "stack_trace": {
+          "type": "text"
+        },
+        "tags": {
+          "type": "keyword"
+        }
+      }
+    },
+    "aliases": {
+      "aurigraph-all-logs": {}
+    }
+  }
+}

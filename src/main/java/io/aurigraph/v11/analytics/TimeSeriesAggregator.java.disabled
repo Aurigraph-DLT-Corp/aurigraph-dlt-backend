@@ -1,0 +1,367 @@
+package io.aurigraph.v11.analytics;
+
+import jakarta.enterprise.context.ApplicationScoped;
+import org.jboss.logging.Logger;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+
+/**
+ * Time Series Aggregator - AV11-062
+ * Aggregates time-series data at different granularities (hourly, daily, weekly, monthly).
+ *
+ * Provides efficient aggregation of high-frequency data into lower frequency buckets
+ * for analytics and visualization purposes.
+ *
+ * @version 11.0.0
+ * @since Sprint 14
+ */
+@ApplicationScoped
+public class TimeSeriesAggregator {
+
+    private static final Logger LOG = Logger.getLogger(TimeSeriesAggregator.class);
+
+    /**
+     * Aggregate data by hour
+     * @param rawData Raw time-series data with second-level granularity
+     * @return Hourly aggregated data
+     */
+    public Map<Instant, Long> aggregateHourly(Map<Instant, Long> rawData) {
+        LOG.debug("Aggregating data by hour");
+
+        Map<Instant, Long> hourlyData = new ConcurrentHashMap<>();
+
+        rawData.forEach((timestamp, value) -> {
+            Instant hourBucket = timestamp.truncatedTo(ChronoUnit.HOURS);
+            hourlyData.merge(hourBucket, value, Long::sum);
+        });
+
+        LOG.debugf("Aggregated %d raw data points into %d hourly buckets", rawData.size(), hourlyData.size());
+        return hourlyData;
+    }
+
+    /**
+     * Aggregate data by day
+     * @param rawData Raw time-series data
+     * @return Daily aggregated data
+     */
+    public Map<Instant, Long> aggregateDaily(Map<Instant, Long> rawData) {
+        LOG.debug("Aggregating data by day");
+
+        Map<Instant, Long> dailyData = new ConcurrentHashMap<>();
+
+        rawData.forEach((timestamp, value) -> {
+            Instant dayBucket = timestamp.truncatedTo(ChronoUnit.DAYS);
+            dailyData.merge(dayBucket, value, Long::sum);
+        });
+
+        LOG.debugf("Aggregated %d raw data points into %d daily buckets", rawData.size(), dailyData.size());
+        return dailyData;
+    }
+
+    /**
+     * Aggregate data by week
+     * @param rawData Raw time-series data
+     * @return Weekly aggregated data
+     */
+    public Map<Instant, Long> aggregateWeekly(Map<Instant, Long> rawData) {
+        LOG.debug("Aggregating data by week");
+
+        Map<Instant, Long> weeklyData = new ConcurrentHashMap<>();
+
+        rawData.forEach((timestamp, value) -> {
+            // Truncate to start of week (Monday)
+            Instant weekBucket = timestamp.truncatedTo(ChronoUnit.DAYS);
+            long daysSinceEpoch = weekBucket.getEpochSecond() / (24 * 60 * 60);
+            long daysToMonday = (daysSinceEpoch - 3) % 7; // Epoch was Thursday, adjust to Monday
+            weekBucket = weekBucket.minus(daysToMonday, ChronoUnit.DAYS);
+
+            weeklyData.merge(weekBucket, value, Long::sum);
+        });
+
+        LOG.debugf("Aggregated %d raw data points into %d weekly buckets", rawData.size(), weeklyData.size());
+        return weeklyData;
+    }
+
+    /**
+     * Aggregate data by month
+     * @param rawData Raw time-series data
+     * @return Monthly aggregated data
+     */
+    public Map<Instant, Long> aggregateMonthly(Map<Instant, Long> rawData) {
+        LOG.debug("Aggregating data by month");
+
+        Map<Instant, Long> monthlyData = new ConcurrentHashMap<>();
+
+        rawData.forEach((timestamp, value) -> {
+            // Truncate to start of month (first day)
+            Instant dayBucket = timestamp.truncatedTo(ChronoUnit.DAYS);
+            Instant monthBucket = Instant.ofEpochSecond(
+                dayBucket.getEpochSecond() -
+                ((dayBucket.getEpochSecond() / (24 * 60 * 60)) % 30) * (24 * 60 * 60)
+            );
+
+            monthlyData.merge(monthBucket, value, Long::sum);
+        });
+
+        LOG.debugf("Aggregated %d raw data points into %d monthly buckets", rawData.size(), monthlyData.size());
+        return monthlyData;
+    }
+
+    /**
+     * Aggregate data with custom bucket size
+     * @param rawData Raw time-series data
+     * @param bucketSizeMinutes Bucket size in minutes
+     * @return Aggregated data with custom bucket size
+     */
+    public Map<Instant, Long> aggregateCustom(Map<Instant, Long> rawData, long bucketSizeMinutes) {
+        LOG.debugf("Aggregating data with custom bucket size: %d minutes", bucketSizeMinutes);
+
+        Map<Instant, Long> aggregatedData = new ConcurrentHashMap<>();
+        long bucketSizeSeconds = bucketSizeMinutes * 60;
+
+        rawData.forEach((timestamp, value) -> {
+            long bucketIndex = timestamp.getEpochSecond() / bucketSizeSeconds;
+            Instant bucketStart = Instant.ofEpochSecond(bucketIndex * bucketSizeSeconds);
+            aggregatedData.merge(bucketStart, value, Long::sum);
+        });
+
+        LOG.debugf("Aggregated %d raw data points into %d custom buckets", rawData.size(), aggregatedData.size());
+        return aggregatedData;
+    }
+
+    /**
+     * Calculate moving average over time series
+     * @param timeSeries Time series data
+     * @param windowSize Window size for moving average
+     * @return Moving average time series
+     */
+    public Map<Instant, Double> calculateMovingAverage(Map<Instant, Long> timeSeries, int windowSize) {
+        LOG.debugf("Calculating moving average with window size: %d", windowSize);
+
+        List<Map.Entry<Instant, Long>> sortedEntries = timeSeries.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .collect(Collectors.toList());
+
+        Map<Instant, Double> movingAverages = new LinkedHashMap<>();
+        Queue<Long> window = new LinkedList<>();
+        long sum = 0;
+
+        for (Map.Entry<Instant, Long> entry : sortedEntries) {
+            window.add(entry.getValue());
+            sum += entry.getValue();
+
+            if (window.size() > windowSize) {
+                sum -= window.poll();
+            }
+
+            double average = (double) sum / window.size();
+            movingAverages.put(entry.getKey(), average);
+        }
+
+        LOG.debugf("Calculated moving average for %d data points", movingAverages.size());
+        return movingAverages;
+    }
+
+    /**
+     * Resample time series to fixed intervals
+     * @param timeSeries Time series data
+     * @param intervalSeconds Interval in seconds
+     * @return Resampled time series with filled gaps
+     */
+    public Map<Instant, Long> resample(Map<Instant, Long> timeSeries, long intervalSeconds) {
+        LOG.debugf("Resampling time series with interval: %d seconds", intervalSeconds);
+
+        if (timeSeries.isEmpty()) {
+            return new LinkedHashMap<>();
+        }
+
+        List<Map.Entry<Instant, Long>> sortedEntries = timeSeries.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .collect(Collectors.toList());
+
+        Instant start = sortedEntries.get(0).getKey();
+        Instant end = sortedEntries.get(sortedEntries.size() - 1).getKey();
+
+        Map<Instant, Long> resampled = new LinkedHashMap<>();
+        Map<Instant, Long> aggregated = new HashMap<>();
+
+        // Aggregate raw data into buckets
+        sortedEntries.forEach(entry -> {
+            long bucketIndex = entry.getKey().getEpochSecond() / intervalSeconds;
+            Instant bucketStart = Instant.ofEpochSecond(bucketIndex * intervalSeconds);
+            aggregated.merge(bucketStart, entry.getValue(), Long::sum);
+        });
+
+        // Fill gaps with zeros or interpolated values
+        Instant current = start.truncatedTo(ChronoUnit.SECONDS);
+        current = Instant.ofEpochSecond((current.getEpochSecond() / intervalSeconds) * intervalSeconds);
+
+        while (!current.isAfter(end)) {
+            resampled.put(current, aggregated.getOrDefault(current, 0L));
+            current = current.plusSeconds(intervalSeconds);
+        }
+
+        LOG.debugf("Resampled %d data points into %d uniform intervals", timeSeries.size(), resampled.size());
+        return resampled;
+    }
+
+    /**
+     * Calculate rate of change between consecutive data points
+     * @param timeSeries Time series data
+     * @return Rate of change time series
+     */
+    public Map<Instant, Double> calculateRateOfChange(Map<Instant, Long> timeSeries) {
+        LOG.debug("Calculating rate of change");
+
+        List<Map.Entry<Instant, Long>> sortedEntries = timeSeries.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .collect(Collectors.toList());
+
+        Map<Instant, Double> rateOfChange = new LinkedHashMap<>();
+
+        for (int i = 1; i < sortedEntries.size(); i++) {
+            Map.Entry<Instant, Long> current = sortedEntries.get(i);
+            Map.Entry<Instant, Long> previous = sortedEntries.get(i - 1);
+
+            long timeDiff = current.getKey().getEpochSecond() - previous.getKey().getEpochSecond();
+            if (timeDiff > 0) {
+                double rate = (double) (current.getValue() - previous.getValue()) / timeDiff;
+                rateOfChange.put(current.getKey(), rate);
+            }
+        }
+
+        LOG.debugf("Calculated rate of change for %d data points", rateOfChange.size());
+        return rateOfChange;
+    }
+
+    /**
+     * Detect anomalies in time series using standard deviation
+     * @param timeSeries Time series data
+     * @param stdDevThreshold Number of standard deviations for anomaly threshold
+     * @return Map of timestamps to anomaly scores
+     */
+    public Map<Instant, Double> detectAnomalies(Map<Instant, Long> timeSeries, double stdDevThreshold) {
+        LOG.debugf("Detecting anomalies with threshold: %.2f standard deviations", stdDevThreshold);
+
+        if (timeSeries.isEmpty()) {
+            return new HashMap<>();
+        }
+
+        // Calculate mean and standard deviation
+        double mean = timeSeries.values().stream().mapToLong(Long::longValue).average().orElse(0.0);
+        double variance = timeSeries.values().stream()
+            .mapToDouble(v -> Math.pow(v - mean, 2))
+            .average()
+            .orElse(0.0);
+        double stdDev = Math.sqrt(variance);
+
+        double lowerBound = mean - (stdDevThreshold * stdDev);
+        double upperBound = mean + (stdDevThreshold * stdDev);
+
+        Map<Instant, Double> anomalies = new HashMap<>();
+
+        timeSeries.forEach((timestamp, value) -> {
+            if (value < lowerBound || value > upperBound) {
+                double anomalyScore = Math.abs(value - mean) / stdDev;
+                anomalies.put(timestamp, anomalyScore);
+            }
+        });
+
+        LOG.debugf("Detected %d anomalies (mean: %.2f, stdDev: %.2f)", anomalies.size(), mean, stdDev);
+        return anomalies;
+    }
+
+    /**
+     * Calculate cumulative sum over time series
+     * @param timeSeries Time series data
+     * @return Cumulative sum time series
+     */
+    public Map<Instant, Long> calculateCumulativeSum(Map<Instant, Long> timeSeries) {
+        LOG.debug("Calculating cumulative sum");
+
+        List<Map.Entry<Instant, Long>> sortedEntries = timeSeries.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .collect(Collectors.toList());
+
+        Map<Instant, Long> cumulativeSum = new LinkedHashMap<>();
+        long sum = 0;
+
+        for (Map.Entry<Instant, Long> entry : sortedEntries) {
+            sum += entry.getValue();
+            cumulativeSum.put(entry.getKey(), sum);
+        }
+
+        LOG.debugf("Calculated cumulative sum for %d data points", cumulativeSum.size());
+        return cumulativeSum;
+    }
+
+    /**
+     * Calculate percentiles for time series values
+     * @param timeSeries Time series data
+     * @param percentiles List of percentiles to calculate (e.g., 50, 95, 99)
+     * @return Map of percentile to value
+     */
+    public Map<Integer, Long> calculatePercentiles(Map<Instant, Long> timeSeries, List<Integer> percentiles) {
+        LOG.debugf("Calculating percentiles: %s", percentiles);
+
+        List<Long> sortedValues = timeSeries.values().stream()
+            .sorted()
+            .collect(Collectors.toList());
+
+        if (sortedValues.isEmpty()) {
+            return new HashMap<>();
+        }
+
+        Map<Integer, Long> results = new HashMap<>();
+
+        for (Integer percentile : percentiles) {
+            int index = (int) Math.ceil(percentile / 100.0 * sortedValues.size()) - 1;
+            index = Math.max(0, Math.min(index, sortedValues.size() - 1));
+            results.put(percentile, sortedValues.get(index));
+        }
+
+        LOG.debugf("Calculated %d percentiles", results.size());
+        return results;
+    }
+
+    /**
+     * Smooth time series using exponential smoothing
+     * @param timeSeries Time series data
+     * @param alpha Smoothing factor (0 < alpha < 1)
+     * @return Smoothed time series
+     */
+    public Map<Instant, Double> exponentialSmoothing(Map<Instant, Long> timeSeries, double alpha) {
+        LOG.debugf("Applying exponential smoothing with alpha: %.2f", alpha);
+
+        if (alpha <= 0 || alpha >= 1) {
+            throw new IllegalArgumentException("Alpha must be between 0 and 1");
+        }
+
+        List<Map.Entry<Instant, Long>> sortedEntries = timeSeries.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey())
+            .collect(Collectors.toList());
+
+        Map<Instant, Double> smoothed = new LinkedHashMap<>();
+
+        if (sortedEntries.isEmpty()) {
+            return smoothed;
+        }
+
+        double previousSmoothed = sortedEntries.get(0).getValue();
+        smoothed.put(sortedEntries.get(0).getKey(), previousSmoothed);
+
+        for (int i = 1; i < sortedEntries.size(); i++) {
+            Map.Entry<Instant, Long> entry = sortedEntries.get(i);
+            double currentSmoothed = alpha * entry.getValue() + (1 - alpha) * previousSmoothed;
+            smoothed.put(entry.getKey(), currentSmoothed);
+            previousSmoothed = currentSmoothed;
+        }
+
+        LOG.debugf("Smoothed %d data points", smoothed.size());
+        return smoothed;
+    }
+}

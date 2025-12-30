@@ -1,0 +1,183 @@
+####
+# Aurigraph V11 Ultra-Optimized Native Dockerfile
+# 
+# Ultra-optimized production build targeting:
+# - <600ms startup time (50% faster than standard)
+# - <85MB final image size (multi-stage optimized)
+# - 2M+ TPS performance capability
+# - Static binary with zero runtime dependencies
+# - Memory usage <200MB under load
+#
+# Multi-stage build process:
+# 1. Builder stage: GraalVM native compilation with ultra optimizations
+# 2. Runtime stage: Minimal distroless base with security hardening
+#
+# Build: docker build -f src/main/docker/Dockerfile.native-ultra-optimized -t aurigraph/v11-ultra:latest .
+# Run:   docker run -p 9003:9003 -p 9004:9004 aurigraph/v11-ultra:latest
+####
+
+# Stage 1: Ultra-Optimized Build Environment
+FROM quay.io/quarkus/ubi-quarkus-mandrel:24-java21 AS ultra-builder
+
+# Build environment optimization
+ENV MAVEN_OPTS="-Xmx12g -XX:+UseG1GC -XX:+UseStringDeduplication -XX:MaxGCPauseMillis=50 -XX:+UnlockExperimentalVMOptions"
+ENV GRAALVM_HOME="/opt/mandrel"
+ENV JAVA_HOME="/opt/mandrel" 
+ENV PATH="$GRAALVM_HOME/bin:$PATH"
+ENV BUILDKIT_PROGRESS=plain
+ENV DOCKER_BUILDKIT=1
+
+# System-level optimizations
+USER root
+RUN microdnf update -y && \
+    microdnf install -y gcc glibc-devel glibc-static zlib-devel zlib-static \
+                       libstdc++-static binutils strip \
+                       file util-linux && \
+    microdnf clean all && \
+    # Configure system for maximum performance
+    echo 'vm.swappiness=1' >> /etc/sysctl.conf && \
+    echo 'vm.dirty_ratio=80' >> /etc/sysctl.conf && \
+    echo 'vm.dirty_background_ratio=5' >> /etc/sysctl.conf
+
+WORKDIR /build
+
+# Copy build configuration with proper ownership
+COPY --chown=quarkus:quarkus mvnw mvnw.cmd pom.xml ./
+COPY --chown=quarkus:quarkus .mvn/ .mvn/
+
+USER quarkus
+
+# Pre-download and cache dependencies for faster builds
+RUN ./mvnw dependency:resolve dependency:resolve-sources dependency:go-offline \
+    -B --no-transfer-progress
+
+# Copy source code
+COPY --chown=quarkus:quarkus src/ src/
+
+# Ultra-optimized native build with maximum performance flags
+RUN echo "Starting ultra-optimized native build at $(date)" && \
+    time ./mvnw package -Pnative-ultra \
+        -Dquarkus.native.container-build=false \
+        -Dquarkus.native.builder-image="" \
+        -Dquarkus.native.native-image-xmx=12g \
+        -Dquarkus.native.additional-build-args="\
+            -march=native,\
+            -O3,\
+            -H:+StaticExecutableWithDynamicLibC,\
+            -H:+RemoveUnusedSymbols,\
+            -H:+ReportUnsupportedElementsAtRuntime,\
+            --gc=G1,\
+            --initialize-at-build-time=org.slf4j.LoggerFactory,\
+            --enable-preview,\
+            --strict-image-heap" \
+        -Dquarkus.package.compress=true \
+        -Dmaven.test.skip=true \
+        -T 4 \
+        --no-transfer-progress \
+        -B && \
+    echo "Native build completed at $(date)"
+
+# Post-build optimization and verification
+RUN BINARY=$(find target -name "*-runner" -type f) && \
+    echo "Binary analysis:" && \
+    ls -la "$BINARY" && \
+    file "$BINARY" && \
+    du -sh "$BINARY" && \
+    # Strip additional debug symbols for minimal size
+    strip --strip-unneeded "$BINARY" 2>/dev/null || true && \
+    # Verify it's a static binary
+    if ldd "$BINARY" 2>/dev/null | grep -q "not a dynamic executable"; then \
+        echo "✓ Static binary created successfully"; \
+    else \
+        echo "⚠ Dynamic binary created:"; \
+        ldd "$BINARY" 2>/dev/null || true; \
+    fi && \
+    # Quick startup test
+    echo "Testing binary startup:" && \
+    timeout 10s "$BINARY" --help >/dev/null 2>&1 && echo "✓ Startup test passed" || echo "⚠ Startup test failed"
+
+# Stage 2: Ultra-Minimal Runtime Environment
+FROM gcr.io/distroless/static-debian12:nonroot AS runtime
+
+# Runtime metadata
+LABEL maintainer="Aurigraph DLT Team"
+LABEL org.opencontainers.image.title="Aurigraph V11 Ultra-Native"
+LABEL org.opencontainers.image.description="Ultra-optimized native blockchain platform for 2M+ TPS"
+LABEL org.opencontainers.image.version="11.0.0-ultra"
+LABEL org.opencontainers.image.vendor="Aurigraph DLT Corp"
+LABEL org.opencontainers.image.licenses="Proprietary"
+LABEL org.opencontainers.image.url="https://aurigraph.io"
+LABEL org.opencontainers.image.documentation="https://docs.aurigraph.io/v11"
+LABEL org.opencontainers.image.source="https://github.com/Aurigraph-DLT-Corp/Aurigraph-DLT"
+
+# Performance and security labels for Kubernetes
+LABEL io.kubernetes.container.memory.request="64Mi"
+LABEL io.kubernetes.container.memory.limit="256Mi"
+LABEL io.kubernetes.container.cpu.request="50m"
+LABEL io.kubernetes.container.cpu.limit="2000m"
+LABEL io.kubernetes.container.security.runAsNonRoot="true"
+LABEL io.kubernetes.container.security.readOnlyRootFilesystem="true"
+
+WORKDIR /app
+
+# Copy ultra-optimized binary with minimal footprint
+COPY --from=ultra-builder --chown=nonroot:nonroot /build/target/*-runner ./aurigraph-v11
+
+# Ultra-minimal configuration (production-ready defaults built into binary)
+# Only copy essential configuration files
+COPY --from=ultra-builder --chown=nonroot:nonroot \
+     /build/src/main/resources/application-prod.properties ./application.properties
+
+# Set ultra-optimized runtime environment variables
+ENV MALLOC_ARENA_MAX=2
+ENV MALLOC_MMAP_THRESHOLD_=65536
+ENV MALLOC_TRIM_THRESHOLD_=131072  
+ENV MALLOC_MMAP_MAX_=65536
+ENV MALLOC_TOP_PAD_=131072
+
+# Application-specific performance tuning
+ENV AURIGRAPH_NATIVE_MODE=true
+ENV AURIGRAPH_OPTIMIZE_FOR_THROUGHPUT=true
+ENV AURIGRAPH_MEMORY_POOL_SIZE=128m
+ENV AURIGRAPH_GC_THREADS=2
+ENV AURIGRAPH_STARTUP_MODE=ultra
+ENV AURIGRAPH_TPS_TARGET=2500000
+
+# JVM-style environment variables for native image
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0"
+
+# Ultra-fast health check (optimized for <100ms response)
+HEALTHCHECK --interval=3s --timeout=1s --start-period=2s --retries=2 \
+    CMD ["/app/aurigraph-v11", "--health-check"] || exit 1
+
+# Expose optimized ports
+EXPOSE 9003/tcp 9004/tcp
+
+# Security: Use non-root user
+USER 65532:65532
+
+# Ultra-optimized entrypoint with performance flags
+ENTRYPOINT ["/app/aurigraph-v11", \
+    "-Dquarkus.http.host=0.0.0.0", \
+    "-Dquarkus.http.port=9003", \
+    "-Dquarkus.grpc.server.host=0.0.0.0", \
+    "-Dquarkus.grpc.server.port=9004", \
+    "-Djava.security.egd=file:/dev/./urandom", \
+    "-Dfile.encoding=UTF-8", \
+    "-Dsun.nio.useCanonicalPrefixCache=false", \
+    "-Djava.awt.headless=true", \
+    "-Djava.net.preferIPv4Stack=true", \
+    "-Dcom.sun.management.jmxremote=false", \
+    "-Djava.rmi.server.hostname=localhost"]
+
+# Build-time arguments for CI/CD
+ARG BUILD_VERSION=11.0.0-ultra
+ARG BUILD_TIMESTAMP
+ARG GIT_COMMIT
+ARG BUILD_NUMBER
+
+# Additional metadata for traceability  
+LABEL build.version="$BUILD_VERSION"
+LABEL build.timestamp="$BUILD_TIMESTAMP"  
+LABEL build.git-commit="$GIT_COMMIT"
+LABEL build.number="$BUILD_NUMBER"

@@ -1,0 +1,459 @@
+{
+  "dashboard": {
+    "title": "Aurigraph V11 - Consensus Health",
+    "tags": ["aurigraph", "v11", "consensus", "hyperraft"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "5s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "type": "stat",
+        "title": "Consensus Status",
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "aurigraph_consensus_status",
+            "legendFormat": "Status"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "none",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {
+                "value": 1,
+                "text": "HEALTHY",
+                "color": "green"
+              },
+              {
+                "value": 0,
+                "text": "DEGRADED",
+                "color": "red"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": 2,
+        "type": "stat",
+        "title": "Current Leader",
+        "gridPos": {
+          "x": 6,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "aurigraph_consensus_leader_id",
+            "legendFormat": "Leader"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "none",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "type": "stat",
+        "title": "Cluster Size",
+        "gridPos": {
+          "x": 12,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "aurigraph_consensus_cluster_size",
+            "legendFormat": "Nodes"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "none",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "value": 0,
+                  "color": "red"
+                },
+                {
+                  "value": 3,
+                  "color": "yellow"
+                },
+                {
+                  "value": 5,
+                  "color": "green"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "type": "stat",
+        "title": "Consensus Failures (5m)",
+        "gridPos": {
+          "x": 18,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "sum(increase(aurigraph_consensus_failures_total[5m]))",
+            "legendFormat": "Failures"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "value": 0,
+                  "color": "green"
+                },
+                {
+                  "value": 1,
+                  "color": "yellow"
+                },
+                {
+                  "value": 5,
+                  "color": "red"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "type": "graph",
+        "title": "Consensus Round Duration",
+        "gridPos": {
+          "x": 0,
+          "y": 4,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(aurigraph_consensus_round_duration_seconds_bucket[5m]))",
+            "legendFormat": "P50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(aurigraph_consensus_round_duration_seconds_bucket[5m]))",
+            "legendFormat": "P95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(aurigraph_consensus_round_duration_seconds_bucket[5m]))",
+            "legendFormat": "P99"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "s",
+            "label": "Duration"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "type": "graph",
+        "title": "Leader Elections",
+        "gridPos": {
+          "x": 12,
+          "y": 4,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "changes(aurigraph_consensus_leader_id[1h])",
+            "legendFormat": "Leader Changes"
+          },
+          {
+            "expr": "rate(aurigraph_consensus_leader_elections_total[5m])",
+            "legendFormat": "Election Rate"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "short",
+            "label": "Count"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "type": "graph",
+        "title": "Consensus Timeouts",
+        "gridPos": {
+          "x": 0,
+          "y": 12,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "rate(aurigraph_consensus_timeouts_total[5m])",
+            "legendFormat": "Timeout Rate"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ops",
+            "label": "Timeouts/sec"
+          }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [0.1],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": ["A", "5m", "now"]
+              },
+              "reducer": {
+                "params": [],
+                "type": "avg"
+              },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "1m",
+          "handler": 1,
+          "name": "Consensus Timeouts",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 8,
+        "type": "graph",
+        "title": "Vote Response Time",
+        "gridPos": {
+          "x": 12,
+          "y": 12,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(aurigraph_consensus_vote_duration_seconds_bucket[5m]))",
+            "legendFormat": "{{node}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "s",
+            "label": "Response Time"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "type": "graph",
+        "title": "Consensus Messages Per Second",
+        "gridPos": {
+          "x": 0,
+          "y": 20,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "rate(aurigraph_consensus_messages_sent_total[5m])",
+            "legendFormat": "Sent"
+          },
+          {
+            "expr": "rate(aurigraph_consensus_messages_received_total[5m])",
+            "legendFormat": "Received"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ops",
+            "label": "Messages/sec"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "type": "graph",
+        "title": "Quorum Achievement Rate",
+        "gridPos": {
+          "x": 12,
+          "y": 20,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "(rate(aurigraph_consensus_quorum_achieved_total[5m]) / rate(aurigraph_consensus_rounds_total[5m])) * 100",
+            "legendFormat": "Quorum Rate %"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "percent",
+            "label": "Quorum %",
+            "min": 0,
+            "max": 100
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "type": "table",
+        "title": "Node Health Status",
+        "gridPos": {
+          "x": 0,
+          "y": 28,
+          "w": 24,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "aurigraph_consensus_node_health",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true
+              },
+              "indexByName": {
+                "instance": 0,
+                "node_id": 1,
+                "role": 2,
+                "Value": 3
+              },
+              "renameByName": {
+                "instance": "Instance",
+                "node_id": "Node ID",
+                "role": "Role",
+                "Value": "Health"
+              }
+            }
+          }
+        ],
+        "fieldConfig": {
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Health"
+              },
+              "properties": [
+                {
+                  "id": "mappings",
+                  "value": [
+                    {
+                      "value": 1,
+                      "text": "HEALTHY",
+                      "color": "green"
+                    },
+                    {
+                      "value": 0,
+                      "text": "UNHEALTHY",
+                      "color": "red"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 12,
+        "type": "graph",
+        "title": "Block Finalization Rate",
+        "gridPos": {
+          "x": 0,
+          "y": 36,
+          "w": 24,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "rate(aurigraph_consensus_blocks_finalized_total[5m])",
+            "legendFormat": "Finalized Blocks/sec"
+          },
+          {
+            "expr": "rate(aurigraph_consensus_blocks_proposed_total[5m])",
+            "legendFormat": "Proposed Blocks/sec"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ops",
+            "label": "Blocks/sec"
+          }
+        ]
+      }
+    ]
+  },
+  "overwrite": true
+}

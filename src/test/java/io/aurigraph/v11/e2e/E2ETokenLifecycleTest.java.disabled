@@ -1,0 +1,358 @@
+package io.aurigraph.v11.e2e;
+
+import io.quarkus.test.junit.QuarkusTest;
+import io.restassured.RestAssured;
+import org.junit.jupiter.api.*;
+import static io.restassured.RestAssured.*;
+import static org.hamcrest.Matchers.*;
+
+/**
+ * E2ETokenLifecycleTest - End-to-end tests for complete token lifecycle
+ *
+ * Tests:
+ * 1. Create primary token
+ * 2. Create secondary tokens
+ * 3. Submit for VVB approval
+ * 4. Get multiple approvals
+ * 5. Activate tokens
+ * 6. Transfer ownership
+ * 7. Execute contract
+ * 8. Redeem tokens
+ * 9. Verify audit trail
+ *
+ * Performance Target: Complete workflow <5 seconds
+ */
+@QuarkusTest
+@DisplayName("End-to-End Token Lifecycle Tests")
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+public class E2ETokenLifecycleTest {
+
+    private static final String API_BASE = "/api/v12";
+    private static String primaryTokenId;
+    private static String secondaryTokenId;
+    private static String compositeTokenId;
+
+    @BeforeAll
+    static void setup() {
+        RestAssured.baseURI = "http://localhost:9003";
+        RestAssured.basePath = API_BASE;
+    }
+
+    @Test
+    @Order(1)
+    @DisplayName("Should create primary token")
+    void testCreatePrimaryToken() {
+        primaryTokenId = given()
+            .contentType("application/json")
+            .body("""
+                {
+                    "tokenType": "INCOME_STREAM",
+                    "owner": "test-owner",
+                    "initialValue": 1000000,
+                    "currency": "USD"
+                }
+                """)
+            .when()
+            .post("/tokens/primary")
+            .then()
+            .statusCode(201)
+            .body("id", notNullValue())
+            .body("status", equalTo("CREATED"))
+            .extract()
+            .path("id");
+
+        assert primaryTokenId != null;
+    }
+
+    @Test
+    @Order(2)
+    @DisplayName("Should create secondary tokens")
+    void testCreateSecondaryTokens() {
+        secondaryTokenId = given()
+            .contentType("application/json")
+            .body("""
+                {
+                    "parentTokenId": """ + "\"" + primaryTokenId + "\"," + """
+                    "tokenType": "COLLATERAL",
+                    "owner": "test-owner",
+                    "amount": 100000
+                }
+                """)
+            .when()
+            .post("/tokens/secondary")
+            .then()
+            .statusCode(201)
+            .body("id", notNullValue())
+            .body("parentTokenId", equalTo(primaryTokenId))
+            .extract()
+            .path("id");
+
+        assert secondaryTokenId != null;
+    }
+
+    @Test
+    @Order(3)
+    @DisplayName("Should submit token for VVB approval")
+    void testSubmitForVVBApproval() {
+        given()
+            .contentType("application/json")
+            .body("""
+                {
+                    "tokenId": """ + "\"" + secondaryTokenId + "\"," + """
+                    "submittedBy": "test-submitter",
+                    "description": "Request approval for secondary token"
+                }
+                """)
+            .when()
+            .post("/vvb/submit")
+            .then()
+            .statusCode(200)
+            .body("status", equalTo("PENDING"));
+    }
+
+    @Test
+    @Order(4)
+    @DisplayName("Should get multiple VVB approvals")
+    void testGetMultipleApprovals() {
+        // First approval
+        given()
+            .contentType("application/json")
+            .body("""
+                {
+                    "tokenId": """ + "\"" + secondaryTokenId + "\"," + """
+                    "approver": "approver-1",
+                    "decision": "APPROVED"
+                }
+                """)
+            .when()
+            .post("/vvb/approve")
+            .then()
+            .statusCode(200);
+
+        // Second approval
+        given()
+            .contentType("application/json")
+            .body("""
+                {
+                    "tokenId": """ + "\"" + secondaryTokenId + "\"," + """
+                    "approver": "approver-2",
+                    "decision": "APPROVED"
+                }
+                """)
+            .when()
+            .post("/vvb/approve")
+            .then()
+            .statusCode(200);
+
+        // Verify token is now activated
+        given()
+            .when()
+            .get("/tokens/secondary/" + secondaryTokenId)
+            .then()
+            .statusCode(200)
+            .body("status", equalTo("ACTIVE"));
+    }
+
+    @Test
+    @Order(5)
+    @DisplayName("Should transfer token ownership")
+    void testTransferTokenOwnership() {
+        given()
+            .contentType("application/json")
+            .body("""
+                {
+                    "fromOwner": "test-owner",
+                    "toOwner": "new-owner",
+                    "actor": "transfer-executor"
+                }
+                """)
+            .when()
+            .post("/tokens/secondary/" + secondaryTokenId + "/transfer")
+            .then()
+            .statusCode(200)
+            .body("owner", equalTo("new-owner"));
+    }
+
+    @Test
+    @Order(6)
+    @DisplayName("Should create composite token from secondary tokens")
+    void testCreateCompositeToken() {
+        compositeTokenId = given()
+            .contentType("application/json")
+            .body("{\"componentTokenIds\": [\"" + secondaryTokenId + "\"], \"owner\": \"new-owner\", \"name\": \"Test Composite Token\"}")
+            .when()
+            .post("/tokens/composite")
+            .then()
+            .statusCode(201)
+            .body("id", notNullValue())
+            .body("componentCount", equalTo(1))
+            .extract()
+            .path("id");
+
+        assert compositeTokenId != null;
+    }
+
+    @Test
+    @Order(7)
+    @DisplayName("Should verify Merkle proof chain")
+    void testMerkleProofChain() {
+        given()
+            .when()
+            .get("/tokens/secondary/" + secondaryTokenId + "/proof")
+            .then()
+            .statusCode(200)
+            .body("hasSecondaryProof", equalTo(true))
+            .body("hasPrimaryProof", equalTo(true))
+            .body("merkleHash", notNullValue());
+    }
+
+    @Test
+    @Order(8)
+    @DisplayName("Should redeem token")
+    void testRedeemToken() {
+        given()
+            .contentType("application/json")
+            .body("""
+                {
+                    "redeemedBy": "new-owner",
+                    "redemptionAmount": 50000
+                }
+                """)
+            .when()
+            .post("/tokens/secondary/" + secondaryTokenId + "/redeem")
+            .then()
+            .statusCode(200)
+            .body("status", equalTo("REDEEMED"));
+    }
+
+    @Test
+    @Order(9)
+    @DisplayName("Should verify audit trail")
+    void testAuditTrail() {
+        given()
+            .when()
+            .get("/audit/trails/" + secondaryTokenId)
+            .then()
+            .statusCode(200)
+            .body("size()", greaterThan(0))
+            .body("find { it.operation == 'CREATE' }", notNullValue())
+            .body("find { it.operation == 'TRANSFER' }", notNullValue())
+            .body("find { it.operation == 'REDEEM' }", notNullValue());
+    }
+
+    @Test
+    @Order(10)
+    @DisplayName("Should generate compliance report")
+    void testComplianceReport() {
+        given()
+            .when()
+            .get("/audit/compliance?days=1")
+            .then()
+            .statusCode(200)
+            .body("totalRecords", greaterThan(0))
+            .body("integrityStatus", equalTo("VERIFIED"));
+    }
+
+    @Test
+    @DisplayName("Should handle token expiration")
+    void testTokenExpiration() {
+        // Create temporary token
+        String tempTokenId = given()
+            .contentType("application/json")
+            .body("""
+                {
+                    "tokenType": "INCOME_STREAM",
+                    "owner": "temp-owner",
+                    "initialValue": 10000,
+                    "expirationDays": 0
+                }
+                """)
+            .when()
+            .post("/tokens/primary")
+            .then()
+            .statusCode(201)
+            .extract()
+            .path("id");
+
+        // Verify token is expired
+        given()
+            .when()
+            .get("/tokens/primary/" + tempTokenId)
+            .then()
+            .statusCode(200)
+            .body("status", equalTo("EXPIRED"));
+    }
+
+    @Test
+    @DisplayName("Should handle concurrent token operations")
+    void testConcurrentOperations() {
+        // This test verifies that concurrent operations on the same token are handled correctly
+        given()
+            .contentType("application/json")
+            .body("""
+                {
+                    "parentTokenId": """ + "\"" + primaryTokenId + "\"," + """
+                    "tokenType": "ROYALTY",
+                    "owner": "test-owner",
+                    "amount": 50000
+                }
+                """)
+            .when()
+            .post("/tokens/secondary")
+            .then()
+            .statusCode(201);
+    }
+
+    @Test
+    @DisplayName("Should validate token ownership")
+    void testTokenOwnershipValidation() {
+        given()
+            .contentType("application/json")
+            .body("""
+                {
+                    "fromOwner": "unauthorized-owner",
+                    "toOwner": "new-owner",
+                    "actor": "unauthorized-actor"
+                }
+                """)
+            .when()
+            .post("/tokens/secondary/" + secondaryTokenId + "/transfer")
+            .then()
+            .statusCode(403);
+    }
+
+    @Test
+    @DisplayName("Should enforce token status transitions")
+    void testStatusTransitionValidation() {
+        // Try to activate already redeemed token
+        given()
+            .contentType("application/json")
+            .body("""
+                {
+                    "actor": "test-actor"
+                }
+                """)
+            .when()
+            .post("/tokens/secondary/" + secondaryTokenId + "/activate")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    @DisplayName("Should support token search and filtering")
+    void testTokenSearchAndFiltering() {
+        given()
+            .queryParam("owner", "test-owner")
+            .queryParam("status", "CREATED")
+            .when()
+            .get("/tokens/search")
+            .then()
+            .statusCode(200)
+            .body("size()", greaterThanOrEqualTo(0));
+    }
+
+    @AfterAll
+    static void teardown() {
+        // Cleanup if needed
+    }
+}

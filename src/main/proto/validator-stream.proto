@@ -1,0 +1,474 @@
+syntax = "proto3";
+
+package io.aurigraph.v11.proto;
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+import "blockchain.proto";
+import "consensus.proto";
+import "core_types.proto";
+import "consensus-stream.proto";
+
+option java_multiple_files = true;
+option java_package = "io.aurigraph.v11.proto";
+option java_outer_classname = "ValidatorStreamProto";
+
+/**
+ * Validator Stream Protocol Buffer Definitions
+ *
+ * Replaces WebSocket validator monitoring streams with gRPC-Web bidirectional streaming.
+ * Provides real-time streaming of validator status, performance, and health metrics.
+ *
+ * Key Benefits over WebSocket+JSON:
+ * - 60-70% bandwidth reduction (Protobuf vs JSON)
+ * - Type-safe client generation (TypeScript + Java)
+ * - Built-in flow control and backpressure
+ * - HTTP/2 multiplexing (multiple streams, one connection)
+ */
+
+// ============================================================================
+// Validator Status & Information
+// ============================================================================
+
+message ValidatorStatusUpdate {
+  ValidatorInfo validator = 1;
+  ValidatorHealthMetrics health = 2;
+  ValidatorPerformanceMetrics performance = 3;
+  ValidatorReputationInfo reputation = 4;
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+message ValidatorHealthMetrics {
+  enum HealthStatus {
+    HEALTHY = 0;
+    DEGRADED = 1;
+    UNHEALTHY = 2;
+    OFFLINE = 3;
+    SYNCING = 4;
+  }
+
+  HealthStatus status = 1;
+  double health_score = 2;  // 0-100
+
+  // System Health
+  SystemMetrics system_metrics = 3;
+
+  // Network Health
+  double network_latency_ms = 4;
+  int32 peer_connections = 5;
+  double network_bandwidth_mbps = 6;
+
+  // Blockchain Health
+  int64 current_block_height = 7;
+  int64 network_block_height = 8;
+  int64 blocks_behind = 9;
+  bool is_synced = 10;
+
+  // Service Availability
+  double uptime_percent = 11;
+  google.protobuf.Timestamp last_heartbeat = 12;
+  int32 missed_heartbeats_last_hour = 13;
+
+  // Issues & Warnings
+  repeated HealthIssue issues = 14;
+  repeated string warnings = 15;
+}
+
+message HealthIssue {
+  enum Severity {
+    INFO = 0;
+    WARNING = 1;
+    CRITICAL = 2;
+  }
+
+  string issue_id = 1;
+  Severity severity = 2;
+  string description = 3;
+  string resolution = 4;
+  google.protobuf.Timestamp detected_at = 5;
+  bool resolved = 6;
+}
+
+message ValidatorPerformanceMetrics {
+  // Block Production
+  int64 blocks_proposed = 1;
+  int64 blocks_accepted = 2;
+  int64 blocks_rejected = 3;
+  double block_acceptance_rate = 4;
+  double average_block_proposal_time_ms = 5;
+
+  // Voting Performance
+  int64 votes_cast = 6;
+  int64 votes_on_time = 7;
+  int64 votes_late = 8;
+  int64 votes_missed = 9;
+  double voting_participation_rate = 10;
+
+  // Transaction Processing
+  int64 transactions_processed = 11;
+  int64 transactions_validated = 12;
+  int64 transactions_rejected = 13;
+  double transaction_validation_rate = 14;
+  double average_transaction_processing_time_ms = 15;
+
+  // Consensus Participation
+  int32 consensus_rounds_participated = 16;
+  int32 consensus_rounds_missed = 17;
+  double consensus_participation_rate = 18;
+
+  // Performance Scores
+  double overall_performance_score = 19;  // 0-100
+  double responsiveness_score = 20;       // 0-100
+  double reliability_score = 21;          // 0-100
+
+  google.protobuf.Timestamp measurement_period_start = 22;
+  google.protobuf.Timestamp measurement_period_end = 23;
+}
+
+message ValidatorReputationInfo {
+  double current_reputation = 1;     // 0-100
+  double reputation_change_24h = 2;  // +/- delta
+  int32 reputation_rank = 3;         // Among all validators
+
+  // Reputation Factors
+  double uptime_factor = 4;
+  double performance_factor = 5;
+  double reliability_factor = 6;
+  double community_factor = 7;
+
+  // Historical Reputation
+  repeated ReputationHistoryPoint history = 8;
+}
+
+message ReputationHistoryPoint {
+  google.protobuf.Timestamp timestamp = 1;
+  double reputation_score = 2;
+  string change_reason = 3;
+}
+
+// ============================================================================
+// Validator Lifecycle Events
+// ============================================================================
+
+message ValidatorRegisteredEvent {
+  ValidatorInfo validator = 1;
+  string registered_by = 2;
+  double initial_stake = 3;
+  google.protobuf.Timestamp registered_at = 4;
+}
+
+message ValidatorActivatedEvent {
+  string validator_id = 1;
+  string activated_by = 2;
+  double stake_amount = 3;
+  int32 total_active_validators = 4;
+  google.protobuf.Timestamp activated_at = 5;
+}
+
+message ValidatorDeactivatedEvent {
+  enum DeactivationReason {
+    VOLUNTARY = 0;
+    INSUFFICIENT_STAKE = 1;
+    POOR_PERFORMANCE = 2;
+    Byzantine_BEHAVIOR = 3;
+    NETWORK_FAILURE = 4;
+    SLASHING = 5;
+  }
+
+  string validator_id = 1;
+  DeactivationReason reason = 2;
+  string deactivated_by = 3;
+  bool temporary = 4;
+  int64 reactivation_block_height = 5;
+  google.protobuf.Timestamp deactivated_at = 6;
+}
+
+message ValidatorSlashedEvent {
+  enum SlashingReason {
+    DOUBLE_SIGNING = 0;
+    INVALID_PROPOSAL = 1;
+    DOWNTIME = 2;
+    BYZANTINE_BEHAVIOR = 3;
+  }
+
+  string validator_id = 1;
+  SlashingReason reason = 2;
+  double slashed_amount = 3;
+  double remaining_stake = 4;
+  string evidence_hash = 5;
+  bool permanently_banned = 6;
+  google.protobuf.Timestamp slashed_at = 7;
+}
+
+// ============================================================================
+// Validator Activity Events
+// ============================================================================
+
+message BlockProposalActivity {
+  string validator_id = 1;
+  string block_hash = 2;
+  int64 block_height = 3;
+  int32 transaction_count = 4;
+
+  enum ProposalResult {
+    ACCEPTED = 0;
+    REJECTED = 1;
+    TIMEOUT = 2;
+  }
+
+  ProposalResult result = 5;
+  int64 proposal_time_ms = 6;
+  google.protobuf.Timestamp proposed_at = 7;
+}
+
+message VotingActivity {
+  string validator_id = 1;
+  string block_hash = 2;
+  bool vote_choice = 3;  // true = accept, false = reject
+  int64 vote_latency_ms = 4;
+  bool on_time = 5;
+  google.protobuf.Timestamp voted_at = 6;
+}
+
+message ValidatorRewardEvent {
+  enum RewardType {
+    BLOCK_REWARD = 0;
+    TRANSACTION_FEE = 1;
+    VOTING_REWARD = 2;
+    PERFORMANCE_BONUS = 3;
+  }
+
+  string validator_id = 1;
+  RewardType reward_type = 2;
+  double reward_amount = 3;
+  string reward_currency = 4;
+  int64 block_height = 5;
+  google.protobuf.Timestamp awarded_at = 6;
+}
+
+message ValidatorPenaltyEvent {
+  enum PenaltyType {
+    MISSED_BLOCK = 0;
+    LATE_VOTE = 1;
+    MISSED_VOTE = 2;
+    INVALID_PROPOSAL = 3;
+  }
+
+  string validator_id = 1;
+  PenaltyType penalty_type = 2;
+  double penalty_amount = 3;
+  double reputation_impact = 4;
+  string reason = 5;
+  google.protobuf.Timestamp penalized_at = 6;
+}
+
+// ============================================================================
+// Validator Set Management
+// ============================================================================
+
+// ValidatorSetUpdate is defined in consensus-stream.proto and reused here
+
+message ValidatorRankingUpdate {
+  repeated ValidatorRanking rankings = 1;
+  string ranking_criteria = 2;  // "reputation", "stake", "performance", "uptime"
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+message ValidatorRanking {
+  int32 rank = 1;
+  string validator_id = 2;
+  double score = 3;
+  double stake = 4;
+  double reputation = 5;
+  double performance_score = 6;
+}
+
+// ============================================================================
+// Validator Comparison & Analytics
+// ============================================================================
+
+message ValidatorComparison {
+  repeated string validator_ids = 1;
+  map<string, ValidatorPerformanceMetrics> performance_comparison = 2;
+  map<string, ValidatorHealthMetrics> health_comparison = 3;
+  map<string, double> reputation_comparison = 4;
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+message ValidatorAnalytics {
+  string validator_id = 1;
+  google.protobuf.Timestamp period_start = 2;
+  google.protobuf.Timestamp period_end = 3;
+
+  // Activity Summary
+  int64 total_blocks_proposed = 4;
+  int64 total_votes_cast = 5;
+  int64 total_transactions_processed = 6;
+
+  // Earnings
+  double total_rewards_earned = 7;
+  double total_penalties_incurred = 8;
+  double net_earnings = 9;
+
+  // Performance Trends
+  repeated PerformanceTrendPoint performance_trend = 10;
+  repeated ReputationHistoryPoint reputation_trend = 11;
+}
+
+message PerformanceTrendPoint {
+  google.protobuf.Timestamp timestamp = 1;
+  double performance_score = 2;
+  double block_acceptance_rate = 3;
+  double voting_participation_rate = 4;
+}
+
+// ============================================================================
+// Stream Control Messages
+// ============================================================================
+
+message ValidatorSubscribeRequest {
+  string client_id = 1;
+  string session_token = 2;
+
+  // Subscription Configuration
+  repeated string validator_ids = 3;      // Specific validators to monitor (empty = all)
+  repeated string event_types = 4;        // ["status", "health", "performance", "activity", "rewards", "penalties", "set_updates"]
+  int32 update_interval_ms = 5;           // Minimum interval between updates (default: 2000ms)
+
+  // Filtering
+  bool only_active = 6;
+  double min_reputation = 7;
+  double min_stake = 8;
+
+  // Performance Options
+  int32 buffer_size = 9;                  // Client-side buffer (default: 50)
+  bool include_historical = 10;
+  int32 historical_hours = 11;            // Include last N hours of history
+}
+
+message ValidatorSubscribeResponse {
+  bool success = 1;
+  string message = 2;
+  string subscription_id = 3;
+  google.protobuf.Timestamp started_at = 4;
+  repeated ValidatorInfo subscribed_validators = 5;
+}
+
+message ValidatorUnsubscribeRequest {
+  string subscription_id = 1;
+  string client_id = 2;
+}
+
+message ValidatorUnsubscribeResponse {
+  bool success = 1;
+  string message = 2;
+  int64 total_events_delivered = 3;
+  google.protobuf.Timestamp ended_at = 4;
+}
+
+// ============================================================================
+// Real-Time Validator Events (Union Type)
+// ============================================================================
+
+message ValidatorEventStream {
+  google.protobuf.Timestamp timestamp = 1;
+  string event_id = 2;
+  string validator_id = 3;
+
+  oneof event_data {
+    ValidatorStatusUpdate status_update = 4;
+    ValidatorRegisteredEvent registered = 5;
+    ValidatorActivatedEvent activated = 6;
+    ValidatorDeactivatedEvent deactivated = 7;
+    ValidatorSlashedEvent slashed = 8;
+    BlockProposalActivity block_proposal = 9;
+    VotingActivity voting = 10;
+    ValidatorRewardEvent reward = 11;
+    ValidatorPenaltyEvent penalty = 12;
+    ValidatorSetUpdate set_update = 13;
+    ValidatorRankingUpdate ranking_update = 14;
+  }
+}
+
+// ============================================================================
+// Interactive Commands
+// ============================================================================
+
+message ValidatorCommand {
+  enum CommandType {
+    SUBSCRIBE_VALIDATOR = 0;
+    UNSUBSCRIBE_VALIDATOR = 1;
+    CHANGE_UPDATE_INTERVAL = 2;
+    ADD_FILTER = 3;
+    REMOVE_FILTER = 4;
+    TOGGLE_EVENT_TYPE = 5;
+    PAUSE = 6;
+    RESUME = 7;
+    REQUEST_SNAPSHOT = 8;
+    COMPARE_VALIDATORS = 9;
+  }
+
+  CommandType command = 1;
+  repeated string validator_ids = 2;
+  map<string, string> parameters = 3;
+  google.protobuf.Timestamp timestamp = 4;
+}
+
+// ============================================================================
+// Historical Queries
+// ============================================================================
+
+message ValidatorHistoricalQuery {
+  repeated string validator_ids = 1;
+  google.protobuf.Timestamp start_time = 2;
+  google.protobuf.Timestamp end_time = 3;
+  repeated string event_types = 4;
+  int32 limit = 5;
+  int32 offset = 6;
+}
+
+message ValidatorHistoricalResponse {
+  repeated ValidatorEventStream events = 1;
+  int32 total_events = 2;
+  bool has_more = 3;
+  google.protobuf.Timestamp query_executed_at = 4;
+}
+
+// ============================================================================
+// gRPC Service Definition
+// ============================================================================
+
+service ValidatorStreamService {
+  // Get validator status (one-shot)
+  rpc GetValidatorStatus(ValidatorSubscribeRequest) returns (ValidatorStatusUpdate);
+
+  // Get validator set (one-shot)
+  rpc GetValidatorSet(ValidatorSubscribeRequest) returns (ValidatorSetUpdate);
+
+  // Get validator rankings (one-shot)
+  rpc GetValidatorRankings(ValidatorSubscribeRequest) returns (ValidatorRankingUpdate);
+
+  // Subscribe to validator events (server streaming)
+  rpc StreamValidatorEvents(ValidatorSubscribeRequest) returns (stream ValidatorEventStream);
+
+  // Subscribe to specific event types (server streaming)
+  rpc StreamValidatorStatus(ValidatorSubscribeRequest) returns (stream ValidatorStatusUpdate);
+  rpc StreamBlockProposals(ValidatorSubscribeRequest) returns (stream BlockProposalActivity);
+  rpc StreamVotingActivity(ValidatorSubscribeRequest) returns (stream VotingActivity);
+  rpc StreamRewards(ValidatorSubscribeRequest) returns (stream ValidatorRewardEvent);
+
+  // Bidirectional streaming for interactive monitoring
+  rpc InteractiveValidatorMonitor(stream ValidatorCommand) returns (stream ValidatorEventStream);
+
+  // Historical validator data query
+  rpc QueryHistoricalEvents(ValidatorHistoricalQuery) returns (ValidatorHistoricalResponse);
+
+  // Get validator analytics
+  rpc GetValidatorAnalytics(ValidatorHistoricalQuery) returns (ValidatorAnalytics);
+
+  // Compare validators
+  rpc CompareValidators(ValidatorHistoricalQuery) returns (ValidatorComparison);
+
+  // Unsubscribe from streaming
+  rpc Unsubscribe(ValidatorUnsubscribeRequest) returns (ValidatorUnsubscribeResponse);
+}

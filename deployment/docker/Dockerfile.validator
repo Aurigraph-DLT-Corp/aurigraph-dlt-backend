@@ -1,0 +1,80 @@
+################################################################################
+# Dockerfile.validator - Validator Node Container
+# Purpose: Consensus participation, block validation, state management
+# Resources: 16-32 CPU cores, 4-8GB RAM, 100GB SSD
+################################################################################
+
+FROM ghcr.io/graalvm/native-image-community:21-muslib AS build
+
+WORKDIR /build
+COPY .mvn/ .mvn/
+COPY mvnw pom.xml ./
+RUN ./mvnw dependency:go-offline -B
+
+COPY src/ src/
+RUN ./mvnw clean package -Pnative-ultra \
+    -DskipTests \
+    -Dquarkus.native.container-build=false \
+    -Dquarkus.native.native-image-xmx=8g
+
+################################################################################
+# Runtime Stage
+################################################################################
+
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3
+
+# Install runtime dependencies
+RUN microdnf install -y \
+    supervisor \
+    util-linux \
+    procps-ng \
+    libstdc++ \
+    zlib \
+    && microdnf clean all
+
+WORKDIR /app
+
+# Copy native executable
+COPY --from=build --chown=1001:root /build/target/*-runner /app/aurigraph-v11
+
+# Copy multi-node launcher
+COPY --chown=1001:root scripts/multi-node-launcher.sh /app/
+COPY --chown=1001:root config/supervisord-validator.conf /etc/supervisord.conf
+
+# Create directories
+RUN mkdir -p /app/logs /app/data /app/pids /app/config && \
+    chmod +x /app/multi-node-launcher.sh /app/aurigraph-v11
+
+# Validator-specific environment
+ENV NODE_TYPE=VALIDATOR \
+    CONSENSUS_ROLE=ACTIVE \
+    BLOCK_PRODUCTION=ENABLED \
+    STATE_STORAGE=ENABLED \
+    TRANSACTION_PROCESSING=ENABLED \
+    PUBLIC_API=DISABLED \
+    MIN_CPU=16 \
+    MIN_MEMORY=4G \
+    AURIGRAPH_NODE_COUNT=4
+
+# Performance optimizations for validators
+ENV AURIGRAPH_THREAD_POOL_SIZE=256 \
+    AURIGRAPH_BATCH_SIZE=50000 \
+    AURIGRAPH_MEMORY_MODE=optimized
+
+# Expose validator ports (4 nodes × 3 ports)
+EXPOSE 9003-9033 9004-9034 9005-9035
+
+# Health check for first validator node
+HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:9003/q/health/ready || exit 1
+
+# Use multi-node launcher
+ENTRYPOINT ["/app/multi-node-launcher.sh"]
+
+# Labels
+LABEL role="validator" \
+      type="consensus-node" \
+      min-cpu="16" \
+      min-memory="4GB" \
+      max-nodes="8" \
+      version="11.0.0"

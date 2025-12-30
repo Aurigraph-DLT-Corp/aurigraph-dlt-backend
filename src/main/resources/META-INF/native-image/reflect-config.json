@@ -1,0 +1,481 @@
+[
+  {
+    "name": "io.aurigraph.v11.consensus.HyperRAFTConsensusService",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.consensus.LeaderElectionManager",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.consensus.ConsensusStateManager",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.consensus.ValidationPipeline",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.grpc.NetworkOptimizer",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.grpc.ConnectionPoolManager",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.grpc.StreamCompressionHandler",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.grpc.LoadBalancerService",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.grpc.HighPerformanceGrpcService",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.crypto.QuantumCryptoService",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.crypto.KyberKeyManager",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.crypto.DilithiumSignatureService",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.crypto.SphincsPlusService",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.crypto.HSMIntegration",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.ai.AIOptimizationService",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.ai.PredictiveRoutingEngine",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.ai.AnomalyDetectionService",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.ai.MLLoadBalancer",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.ai.AdaptiveBatchProcessor",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.transaction.EnhancedTransactionService",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.bridge.CrossChainBridgeService",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.bridge.AtomicSwapManager",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.bridge.MultiSigWalletService",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.bridge.BridgeValidatorService",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.bridge.LiquidityPoolManager",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "org.bouncycastle.pqc.crypto.crystals.kyber.KyberKeyGenerationParameters",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "org.bouncycastle.pqc.crypto.crystals.dilithium.DilithiumKeyGenerationParameters",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "org.bouncycastle.pqc.crypto.sphincsplus.SPHINCSPlusKeyGenerationParameters",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "io.netty.channel.epoll.EpollEventLoopGroup",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.netty.channel.nio.NioEventLoopGroup",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.grpc.netty.shaded.io.netty.channel.epoll.EpollEventLoopGroup",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.grpc.netty.shaded.io.netty.channel.nio.NioEventLoopGroup",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "io.aurigraph.v11.transaction.TransactionEngineV2",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.LockFreeTransactionProcessor",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.MemoryMappedTransactionPool",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.network.P2PNetworkService",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.optimization.PerformanceOptimizer",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.hms.HMSIntegrationService",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.hms.HMSIntegrationGrpcService",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.grpc.TransactionServiceImpl",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.TransactionService",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.AurigraphResource",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "io.aurigraph.v11.MyLivenessCheck",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "org.bouncycastle.pqc.crypto.crystals.kyber.KyberEngine",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "org.bouncycastle.pqc.crypto.crystals.dilithium.DilithiumEngine",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "org.bouncycastle.pqc.crypto.sphincsplus.SPHINCSPlusEngine",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "org.bouncycastle.crypto.engines.AESEngine",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "org.bouncycastle.crypto.digests.SHA3Digest",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "org.bouncycastle.jcajce.provider.BouncyCastleProvider",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "org.deeplearning4j.nn.multilayer.MultiLayerNetwork",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "org.nd4j.linalg.factory.Nd4j",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "com.github.haifengl.smile.classification.RandomForest",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "org.apache.commons.math3.ml.clustering.KMeansPlusPlusClusterer",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "weka.core.Instances",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "weka.classifiers.trees.RandomForest",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "java.util.concurrent.CompletableFuture",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "java.util.concurrent.ForkJoinPool",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "java.util.concurrent.atomic.AtomicLong",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "java.util.concurrent.atomic.AtomicInteger",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "java.util.concurrent.atomic.AtomicReference",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "java.util.concurrent.ConcurrentHashMap",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "java.util.concurrent.locks.ReentrantLock",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "java.util.concurrent.locks.StampedLock",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "java.lang.invoke.MethodHandle",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "java.lang.invoke.MethodHandles$Lookup",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "java.lang.VirtualThread",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "java.security.SecureRandom",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "sun.security.provider.NativePRNG",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "sun.security.provider.NativePRNG$Blocking",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "sun.security.provider.NativePRNG$NonBlocking",
+    "allDeclaredConstructors": true
+  },
+  {
+    "name": "java.util.concurrent.ForkJoinPool",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<clinit>",
+        "parameterTypes": []
+      },
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      },
+      {
+        "name": "commonPool",
+        "parameterTypes": []
+      },
+      {
+        "name": "getCommonPoolParallelism",
+        "parameterTypes": []
+      }
+    ],
+    "fields": [
+      {
+        "name": "common",
+        "allowWrite": true
+      },
+      {
+        "name": "commonParallelism",
+        "allowWrite": true
+      }
+    ]
+  },
+  {
+    "name": "java.util.concurrent.ForkJoinPool$Submitter",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "java.util.concurrent.ForkJoinPool$WorkQueue",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "java.util.concurrent.ForkJoinWorkerThread",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "java.util.concurrent.ForkJoinTask",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true
+  },
+  {
+    "name": "java.util.concurrent.RecursiveTask",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "java.util.concurrent.RecursiveAction",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "sun.misc.Unsafe",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true,
+    "allDeclaredFields": true,
+    "fields": [
+      {
+        "name": "theUnsafe",
+        "allowWrite": true
+      }
+    ]
+  },
+  {
+    "name": "jdk.internal.vm.vector.VectorSupport",
+    "allDeclaredConstructors": false,
+    "allDeclaredMethods": false
+  }
+]

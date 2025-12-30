@@ -1,0 +1,74 @@
+################################################################################
+# Dockerfile.jvm - JVM-based Quarkus Container for Aurigraph V11
+# Quick deployment without native compilation
+################################################################################
+
+# Stage 1: Build the application
+FROM maven:3.9-eclipse-temurin-21 AS build
+
+WORKDIR /build
+
+# Copy Maven files
+COPY .mvn/ .mvn/
+COPY mvnw pom.xml ./
+
+# Download dependencies
+RUN ./mvnw dependency:go-offline -B || true
+
+# Copy source
+COPY src/ src/
+
+# Build application (skip tests to speed up)
+RUN ./mvnw clean package -DskipTests || \
+    ./mvnw clean compile -DskipTests
+
+################################################################################
+# Stage 2: Runtime container
+################################################################################
+
+FROM eclipse-temurin:21-jre-jammy
+
+# Install required packages
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    curl \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create user
+RUN useradd -r -u 1001 -g root -m -s /bin/bash aurigraph
+
+WORKDIR /app
+
+# Copy built application
+COPY --from=build --chown=1001:root /build/target/quarkus-app/ /app/
+
+# Copy additional resources if they exist
+COPY --from=build --chown=1001:root /build/target/classes/ /app/classes/ 2>/dev/null || true
+
+# Environment variables
+ENV JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 \
+    -Dquarkus.http.port=9003 \
+    -Djava.util.logging.manager=org.jboss.logmanager.LogManager \
+    -Dquarkus.profile=prod"
+
+ENV AURIGRAPH_NODE_ID="${HOSTNAME:-node-1}" \
+    AURIGRAPH_TARGET_TPS="1000000" \
+    PORT="9003"
+
+# Health check
+HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:9003/q/health/ready || exit 1
+
+USER 1001
+
+EXPOSE 9003 9004 9005
+
+# Run the application
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar quarkus-run.jar || java $JAVA_OPTS -cp 'lib/*:classes' io.aurigraph.v11.AurigraphResource || echo 'Application failed to start'"]
+
+# Labels
+LABEL name="aurigraph-v11-jvm" \
+      version="11.0.0" \
+      description="Aurigraph V11 JVM Container - Quick Deploy" \
+      runtime="JVM"

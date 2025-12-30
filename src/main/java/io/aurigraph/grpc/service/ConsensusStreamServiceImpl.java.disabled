@@ -1,0 +1,120 @@
+package io.aurigraph.grpc.service;
+
+import com.google.protobuf.Timestamp;
+import io.aurigraph.v11.consensus.HyperRAFTConsensusService;
+import io.aurigraph.v11.proto.BlockProposalEvent;
+import io.aurigraph.v11.proto.CommitmentEvent;
+import io.aurigraph.v11.proto.ConsensusCommand;
+import io.aurigraph.v11.proto.ConsensusEventStream;
+import io.aurigraph.v11.proto.ConsensusHistoricalQuery;
+import io.aurigraph.v11.proto.ConsensusHistoricalResponse;
+import io.aurigraph.v11.proto.ConsensusMetrics;
+import io.aurigraph.v11.proto.ConsensusState;
+import io.aurigraph.v11.proto.ConsensusStateUpdate;
+import io.aurigraph.v11.proto.ConsensusStreamService;
+import io.aurigraph.v11.proto.ConsensusSubscribeRequest;
+import io.aurigraph.v11.proto.ConsensusUnsubscribeRequest;
+import io.aurigraph.v11.proto.ConsensusUnsubscribeResponse;
+import io.aurigraph.v11.proto.LeaderElectionEvent;
+import io.aurigraph.v11.proto.ValidatorActivityUpdate;
+import io.quarkus.grpc.GrpcService;
+import io.smallrye.mutiny.Multi;
+import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
+import jakarta.inject.Inject;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.UUID;
+
+@GrpcService
+public class ConsensusStreamServiceImpl implements ConsensusStreamService {
+
+    @Inject
+    HyperRAFTConsensusService consensusService;
+
+    @Override
+    public Uni<ConsensusStateUpdate> getCurrentState(ConsensusSubscribeRequest request) {
+        return Uni.createFrom().item(createStateUpdate());
+    }
+
+    @Override
+    public Multi<ConsensusEventStream> streamConsensusEvents(ConsensusSubscribeRequest request) {
+        return Multi.createFrom().ticks().every(Duration.ofMillis(request.getUpdateIntervalMs() > 0 ? request.getUpdateIntervalMs() : 500))
+                .onItem().transform(tick -> {
+                    return ConsensusEventStream.newBuilder()
+                            .setTimestamp(toTimestamp(Instant.now()))
+                            .setEventId(UUID.randomUUID().toString())
+                            .setStateUpdate(createStateUpdate())
+                            .build();
+                })
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+    }
+
+    @Override
+    public Multi<LeaderElectionEvent> streamLeaderElections(ConsensusSubscribeRequest request) {
+        return Multi.createFrom().empty(); // Placeholder
+    }
+
+    @Override
+    public Multi<BlockProposalEvent> streamBlockProposals(ConsensusSubscribeRequest request) {
+        return Multi.createFrom().empty(); // Placeholder
+    }
+
+    @Override
+    public Multi<CommitmentEvent> streamCommitments(ConsensusSubscribeRequest request) {
+        return Multi.createFrom().empty(); // Placeholder
+    }
+
+    @Override
+    public Multi<ValidatorActivityUpdate> streamValidatorActivity(ConsensusSubscribeRequest request) {
+        return Multi.createFrom().empty(); // Placeholder
+    }
+
+    @Override
+    public Multi<ConsensusEventStream> interactiveConsensusMonitor(Multi<ConsensusCommand> request) {
+        return request.onItem().transformToMulti(cmd -> streamConsensusEvents(ConsensusSubscribeRequest.newBuilder().build()));
+    }
+
+    @Override
+    public Uni<ConsensusHistoricalResponse> queryHistoricalEvents(ConsensusHistoricalQuery request) {
+        return Uni.createFrom().item(ConsensusHistoricalResponse.newBuilder()
+                .setTotalEvents(0)
+                .setQueryExecutedAt(toTimestamp(Instant.now()))
+                .build());
+    }
+
+    @Override
+    public Uni<ConsensusUnsubscribeResponse> unsubscribe(ConsensusUnsubscribeRequest request) {
+        return Uni.createFrom().item(ConsensusUnsubscribeResponse.newBuilder()
+                .setSuccess(true)
+                .setMessage("Unsubscribed")
+                .setEndedAt(toTimestamp(Instant.now()))
+                .build());
+    }
+
+    private ConsensusStateUpdate createStateUpdate() {
+        // Since we can't easily access internal state of HyperRAFTConsensusService without getters,
+        // we'll assume some defaults or add getters to the service later.
+        // For now, we'll create a dummy state update.
+
+        return ConsensusStateUpdate.newBuilder()
+                .setTimestamp(toTimestamp(Instant.now()))
+                .setCurrentState(ConsensusState.LEADER) // Placeholder
+                .setMetrics(ConsensusMetrics.newBuilder()
+                        .setCurrentTerm(1)
+                        .setCommitIndex(100)
+                        .setLastApplied(100)
+                        .setConnectedPeers(6)
+                        .build())
+                .build();
+    }
+
+    private Timestamp toTimestamp(Instant instant) {
+        if (instant == null) return Timestamp.getDefaultInstance();
+        return Timestamp.newBuilder()
+                .setSeconds(instant.getEpochSecond())
+                .setNanos(instant.getNano())
+                .build();
+    }
+}

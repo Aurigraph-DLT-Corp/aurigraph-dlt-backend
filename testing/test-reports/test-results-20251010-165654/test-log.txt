@@ -1,0 +1,411 @@
+Starting Individual API Tests...
+================================
+
+==================================================
+CATEGORY 1: CORE INFRASTRUCTURE TESTS
+==================================================
+==================================================
+TEST CORE-001: Health Check Endpoint
+==================================================
+Description: Verify application health status and all subsystem checks
+Method: GET
+Endpoint: /q/health
+Expected Status: 200
+Status: ✅ PASS
+HTTP Code: 200
+Response: {
+    "status": "UP",
+    "checks": [
+        {
+            "name": "Aurigraph V11 is running",
+            "status": "UP"
+        },
+        {
+            "name": "alive",
+            "status": "UP"
+        },
+        {
+            "name": "gRPC Server",
+            "status": "UP",
+            "data": {
+                "grpc.health.v1.Health": true,
+                "io.aurigraph.v11.AurigraphV11Service": true
+            }
+        },
+        {
+            "name": "Redis connection health check",
+            "status": "UP"
+        },
+        {
+            "name": "Database connections health check",
+            "status": "UP",
+            "data": {
+                "<default>": "UP"
+            }
+        }
+    ]
+}
+Health Status: 
+==================================================
+TEST CORE-002: Prometheus Metrics
+==================================================
+Description: Retrieve Prometheus-format metrics for monitoring
+Method: GET
+Endpoint: /q/metrics
+Expected Status: 200
+Status: ✅ PASS
+HTTP Code: 200
+Response: # TYPE process_start_time_seconds gauge
+# HELP process_start_time_seconds Start time of the process since unix epoch.
+process_start_time_seconds 1.760087130389E9
+# TYPE jvm_gc_max_data_size_bytes gauge
+# HELP jvm_gc_max_data_size_bytes Max size of long-lived heap memory pool
+jvm_gc_max_data_size_bytes 4.294967296E9
+# TYPE process_cpu_usage gauge
+# HELP process_cpu_usage The \"recent cpu usage\" for the Java Virtual Machine process
+process_cpu_usage 6.549466912022925E-4
+# TYPE system_cpu_usage gauge
+# HELP system_cpu_usage The \"recent cpu usage\" of the system the application is running in
+system_cpu_usage 0.04712974067317164
+# TYPE http_server_bytes_written_max gauge
+# HELP http_server_bytes_written_max Number of bytes sent by the server
+http_server_bytes_written_max{server_port="8443"} 722.0
+# TYPE http_server_bytes_written summary
+# HELP http_server_bytes_written Number of bytes sent by the server
+http_server_bytes_written_count{server_port="8443"} 91.0
+http_server_bytes_written_sum{server_port="8443"} 402419.0
+# TYPE system_load_average_1m gauge
+# HELP system_load_average_1m The sum of the number of runnable entities queued to available processors and the number of runnable entities running on the available processors averaged over a period of time
+system_load_average_1m 0.33544921875
+# TYPE process_files_max_files gauge
+# HELP process_files_max_files The maximum file descriptor count
+process_files_max_files 1048576.0
+# TYPE http_server_requests_seconds summary
+# HELP http_server_requests_seconds HTTP server request processing time
+http_server_requests_seconds_count{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/contracts/ricardian/{contractId}/compliance/{framework}"} 3.0
+http_server_requests_seconds_sum{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/contracts/ricardian/{contractId}/compliance/{framework}"} 0.030100926
+http_server_requests_seconds_count{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/enterprise/tenants"} 1.0
+http_server_requests_seconds_sum{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/enterprise/tenants"} 0.014686556
+http_server_requests_seconds_count{method="POST",outcome="SUCCESS",status="200",uri="/api/v11/contracts/ricardian/{contractId}/sign"} 1.0
+http_server_requests_seconds_sum{method="POST",outcome="SUCCESS",status="200",uri="/api/v11/contracts/ricardian/{contractId}/sign"} 0.017515773
+http_server_requests_seconds_count{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/channels"} 2.0
+http_server_requests_seconds_sum{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/channels"} 0.011757965
+http_server_requests_seconds_count{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/security/status"} 1.0
+http_server_requests_seconds_sum{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/security/status"} 0.076097558
+http_server_requests_seconds_count{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/consensus/status"} 1.0
+http_server_requests_seconds_sum{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/consensus/status"} 0.005128636
+http_server_requests_seconds_count{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/contracts/ricardian/{contractId}"} 1.0
+http_server_requests_seconds_sum{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/contracts/ricardian/{contractId}"} 0.006323895
+http_server_requests_seconds_count{method="POST",outcome="SUCCESS",status="200",uri="/api/v11/contracts/ricardian/upload"} 1.0
+http_server_requests_seconds_sum{method="POST",outcome="SUCCESS",status="200",uri="/api/v11/contracts/ricardian/upload"} 0.325041561
+http_server_requests_seconds_count{method="GET",outcome="CLIENT_ERROR",status="404",uri="NOT_FOUND"} 34.0
+http_server_requests_seconds_sum{method="GET",outcome="CLIENT_ERROR",status="404",uri="NOT_FOUND"} 0.052115969
+http_server_requests_seconds_count{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/blockchain/staking/info"} 1.0
+http_server_requests_seconds_sum{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/blockchain/staking/info"} 0.008608393
+http_server_requests_seconds_count{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/contracts/ricardian/{contractId}/audit"} 1.0
+http_server_requests_seconds_sum{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/contracts/ricardian/{contractId}/audit"} 0.030781553
+http_server_requests_seconds_count{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/security/keys"} 1.0
+http_server_requests_seconds_sum{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/security/keys"} 0.012542301
+http_server_requests_seconds_count{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/blockchain/transactions"} 1.0
+http_server_requests_seconds_sum{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/blockchain/transactions"} 0.004010287
+http_server_requests_seconds_count{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/blockchain/blocks"} 1.0
+http_server_requests_seconds_sum{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/blockchain/blocks"} 0.010286011
+http_server_requests_seconds_count{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/ai/predictions"} 1.0
+http_server_requests_seconds_sum{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/ai/predictions"} 0.020353609
+http_server_requests_seconds_count{method="POST",outcome="SERVER_ERROR",status="500",uri="/api/v11/contracts/ricardian/upload"} 1.0
+http_server_requests_seconds_sum{method="POST",outcome="SERVER_ERROR",status="500",uri="/api/v11/contracts/ricardian/upload"} 0.096977218
+http_server_requests_seconds_count{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/blockchain/validators"} 1.0
+http_server_requests_seconds_sum{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/blockchain/validators"} 0.010791593
+http_server_requests_seconds_count{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/blockchain/governance/proposals"} 1.0
+http_server_requests_seconds_sum{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/blockchain/governance/proposals"} 0.010790403
+http_server_requests_seconds_count{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/datafeeds"} 1.0
+http_server_requests_seconds_sum{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/datafeeds"} 0.009599323
+http_server_requests_seconds_count{method="GET",outcome="CLIENT_ERROR",status="404",uri="/api/v11/contracts/ricardian/{contractId}"} 1.0
+http_server_requests_seconds_sum{method="GET",outcome="CLIENT_ERROR",status="404",uri="/api/v11/contracts/ricardian/{contractId}"} 0.005424085
+http_server_requests_seconds_count{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/live/channels"} 1.0
+http_server_requests_seconds_sum{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/live/channels"} 0.019406141
+http_server_requests_seconds_count{method="GET",outcome="CLIENT_ERROR",status="404",uri="/api/v11/datafeeds/{id}"} 1.0
+http_server_requests_seconds_sum{method="GET",outcome="CLIENT_ERROR",status="404",uri="/api/v11/datafeeds/{id}"} 0.003261795
+http_server_requests_seconds_count{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/bridge/chains"} 1.0
+http_server_requests_seconds_sum{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/bridge/chains"} 0.0084135
+http_server_requests_seconds_count{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/contracts/ricardian/gas-fees"} 4.0
+http_server_requests_seconds_sum{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/contracts/ricardian/gas-fees"} 0.250826379
+http_server_requests_seconds_count{method="POST",outcome="SUCCESS",status="200",uri="/api/v11/contracts/ricardian/{contractId}/parties"} 1.0
+http_server_requests_seconds_sum{method="POST",outcome="SUCCESS",status="200",uri="/api/v11/contracts/ricardian/{contractId}/parties"} 0.105961
+http_server_requests_seconds_count{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/analytics/transactions"} 1.0
+http_server_requests_seconds_sum{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/analytics/transactions"} 0.012140907
+# TYPE http_server_requests_seconds_max gauge
+# HELP http_server_requests_seconds_max HTTP server request processing time
+http_server_requests_seconds_max{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/contracts/ricardian/{contractId}/compliance/{framework}"} 0.0
+http_server_requests_seconds_max{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/enterprise/tenants"} 0.0
+http_server_requests_seconds_max{method="POST",outcome="SUCCESS",status="200",uri="/api/v11/contracts/ricardian/{contractId}/sign"} 0.0
+http_server_requests_seconds_max{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/channels"} 0.0
+http_server_requests_seconds_max{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/security/status"} 0.0
+http_server_requests_seconds_max{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/consensus/status"} 0.0
+http_server_requests_seconds_max{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/contracts/ricardian/{contractId}"} 0.0
+http_server_requests_seconds_max{method="POST",outcome="SUCCESS",status="200",uri="/api/v11/contracts/ricardian/upload"} 0.0
+http_server_requests_seconds_max{method="GET",outcome="CLIENT_ERROR",status="404",uri="NOT_FOUND"} 0.0
+http_server_requests_seconds_max{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/blockchain/staking/info"} 0.0
+http_server_requests_seconds_max{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/contracts/ricardian/{contractId}/audit"} 0.0
+http_server_requests_seconds_max{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/security/keys"} 0.0
+http_server_requests_seconds_max{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/blockchain/transactions"} 0.0
+http_server_requests_seconds_max{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/blockchain/blocks"} 0.0
+http_server_requests_seconds_max{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/ai/predictions"} 0.0
+http_server_requests_seconds_max{method="POST",outcome="SERVER_ERROR",status="500",uri="/api/v11/contracts/ricardian/upload"} 0.0
+http_server_requests_seconds_max{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/blockchain/validators"} 0.0
+http_server_requests_seconds_max{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/blockchain/governance/proposals"} 0.0
+http_server_requests_seconds_max{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/datafeeds"} 0.0
+http_server_requests_seconds_max{method="GET",outcome="CLIENT_ERROR",status="404",uri="/api/v11/contracts/ricardian/{contractId}"} 0.0
+http_server_requests_seconds_max{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/live/channels"} 0.0
+http_server_requests_seconds_max{method="GET",outcome="CLIENT_ERROR",status="404",uri="/api/v11/datafeeds/{id}"} 0.0
+http_server_requests_seconds_max{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/bridge/chains"} 0.0
+http_server_requests_seconds_max{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/contracts/ricardian/gas-fees"} 0.0
+http_server_requests_seconds_max{method="POST",outcome="SUCCESS",status="200",uri="/api/v11/contracts/ricardian/{contractId}/parties"} 0.0
+http_server_requests_seconds_max{method="GET",outcome="SUCCESS",status="200",uri="/api/v11/analytics/transactions"} 0.0
+# TYPE netty_eventexecutor_tasks_pending gauge
+# HELP netty_eventexecutor_tasks_pending  
+netty_eventexecutor_tasks_pending{name="vert.x-eventloop-thread-10"} 0.0
+netty_eventexecutor_tasks_pending{name="vert.x-eventloop-thread-9"} 0.0
+netty_eventexecutor_tasks_pending{name="vert.x-eventloop-thread-11"} 0.0
+netty_eventexecutor_tasks_pending{name="vert.x-eventloop-thread-8"} 0.0
+netty_eventexecutor_tasks_pending{name="vert.x-eventloop-thread-12"} 0.0
+netty_eventexecutor_tasks_pending{name="vert.x-eventloop-thread-7"} 0.0
+netty_eventexecutor_tasks_pending{name="vert.x-eventloop-thread-13"} 0.0
+netty_eventexecutor_tasks_pending{name="vert.x-eventloop-thread-6"} 0.0
+netty_eventexecutor_tasks_pending{name="vert.x-eventloop-thread-14"} 0.0
+netty_eventexecutor_tasks_pending{name="vert.x-eventloop-thread-5"} 0.0
+netty_eventexecutor_tasks_pending{name="vert.x-eventloop-thread-15"} 0.0
+netty_eventexecutor_tasks_pending{name="vert.x-eventloop-thread-4"} 0.0
+netty_eventexecutor_tasks_pending{name="vert.x-eventloop-thread-3"} 0.0
+netty_eventexecutor_tasks_pending{name="vert.x-eventloop-thread-2"} 0.0
+netty_eventexecutor_tasks_pending{name="vert.x-eventloop-thread-1"} 0.0
+netty_eventexecutor_tasks_pending{name="vert.x-eventloop-thread-0"} 0.0
+netty_eventexecutor_tasks_pending{name="vert.x-acceptor-thread-0"} 0.0
+# TYPE netty_allocator_pooled_threadlocal_caches gauge
+# HELP netty_allocator_pooled_threadlocal_caches  
+netty_allocator_pooled_threadlocal_caches{allocator_type="PooledByteBufAllocator",name="vertx-pooled"} 16.0
+netty_allocator_pooled_threadlocal_caches{allocator_type="PooledByteBufAllocator",name="pooled"} 15.0
+# TYPE process_uptime_seconds gauge
+# HELP process_uptime_seconds The uptime of the Java virtual machine
+process_uptime_seconds 8484.365
+# TYPE process_cpu_time_ns counter
+# HELP process_cpu_time_ns The \"cpu time\" used by the Java Virtual Machine process
+process_cpu_time_ns_total 4.673E10
+# TYPE jvm_threads_daemon_threads gauge
+# HELP jvm_threads_daemon_threads The current number of live daemon threads
+jvm_threads_daemon_threads 15.0
+# TYPE worker_pool_usage_seconds summary
+# HELP worker_pool_usage_seconds Time spent using resources from the pool
+worker_pool_usage_seconds_count{pool_name="vert.x-internal-blocking",pool_type="worker"} 2.0
+worker_pool_usage_seconds_sum{pool_name="vert.x-internal-blocking",pool_type="worker"} 0.221222176
+worker_pool_usage_seconds_count{pool_name="vert.x-worker-thread",pool_type="worker"} 72.0
+worker_pool_usage_seconds_sum{pool_name="vert.x-worker-thread",pool_type="worker"} 0.770267101
+# TYPE worker_pool_usage_seconds_max gauge
+# HELP worker_pool_usage_seconds_max Time spent using resources from the pool
+worker_pool_usage_seconds_max{pool_name="vert.x-internal-blocking",pool_type="worker"} 0.0
+worker_pool_usage_seconds_max{pool_name="vert.x-worker-thread",pool_type="worker"} 9.23389E-4
+# TYPE jvm_classes_unloaded_classes counter
+# HELP jvm_classes_unloaded_classes The total number of classes unloaded since the Java virtual machine has started execution
+jvm_classes_unloaded_classes_total 0.0
+# TYPE netty_allocator_memory_pinned gauge
+# HELP netty_allocator_memory_pinned  
+netty_allocator_memory_pinned{allocator_type="PooledByteBufAllocator",memory_type="heap",name="pooled"} 0.0
+netty_allocator_memory_pinned{allocator_type="PooledByteBufAllocator",memory_type="heap",name="vertx-pooled"} 0.0
+netty_allocator_memory_pinned{allocator_type="PooledByteBufAllocator",memory_type="direct",name="pooled"} 0.0
+netty_allocator_memory_pinned{allocator_type="PooledByteBufAllocator",memory_type="direct",name="vertx-pooled"} 0.0
+# TYPE jvm_gc_pause_seconds summary
+# HELP jvm_gc_pause_seconds Time spent in GC pause
+jvm_gc_pause_seconds_count{action="end of minor GC",cause="Metadata GC Threshold",gc="G1 Young Generation"} 5.0
+jvm_gc_pause_seconds_sum{action="end of minor GC",cause="Metadata GC Threshold",gc="G1 Young Generation"} 0.065
+jvm_gc_pause_seconds_count{action="end of minor GC",cause="G1 Evacuation Pause",gc="G1 Young Generation"} 1.0
+jvm_gc_pause_seconds_sum{action="end of minor GC",cause="G1 Evacuation Pause",gc="G1 Young Generation"} 0.016
+# TYPE jvm_gc_pause_seconds_max gauge
+# HELP jvm_gc_pause_seconds_max Time spent in GC pause
+jvm_gc_pause_seconds_max{action="end of minor GC",cause="Metadata GC Threshold",gc="G1 Young Generation"} 0.0
+jvm_gc_pause_seconds_max{action="end of minor GC",cause="G1 Evacuation Pause",gc="G1 Young Generation"} 0.0
+# TYPE system_cpu_count gauge
+# HELP system_cpu_count The number of processors available to the Java virtual machine
+system_cpu_count 16.0
+# TYPE worker_pool_queue_size gauge
+# HELP worker_pool_queue_size Number of pending elements in the waiting queue
+worker_pool_queue_size{pool_name="vert.x-internal-blocking",pool_type="worker"} 0.0
+worker_pool_queue_size{pool_name="vert.x-worker-thread",pool_type="worker"} 0.0
+# TYPE jvm_buffer_total_capacity_bytes gauge
+# HELP jvm_buffer_total_capacity_bytes An estimate of the total capacity of the buffers in this pool
+jvm_buffer_total_capacity_bytes{id="mapped - 'non-volatile memory'"} 0.0
+jvm_buffer_total_capacity_bytes{id="mapped"} 2097152.0
+jvm_buffer_total_capacity_bytes{id="direct"} 2.0599016E7
+# TYPE jvm_threads_peak_threads gauge
+# HELP jvm_threads_peak_threads The peak live thread count since the Java virtual machine started or peak was reset
+jvm_threads_peak_threads 40.0
+# TYPE worker_pool_rejected counter
+# HELP worker_pool_rejected Number of times submissions to the pool have been rejected
+worker_pool_rejected_total{pool_name="vert.x-internal-blocking",pool_type="worker"} 0.0
+worker_pool_rejected_total{pool_name="vert.x-worker-thread",pool_type="worker"} 0.0
+# TYPE http_server_connections_seconds_max gauge
+# HELP http_server_connections_seconds_max The duration of the connections
+http_server_connections_seconds_max{server_port="8443"} 0.017700579
+# TYPE http_server_connections_seconds summary
+# HELP http_server_connections_seconds The duration of the connections
+http_server_connections_seconds_active_count{server_port="8443"} 1.0
+http_server_connections_seconds_duration_sum{server_port="8443"} 0.017684088
+# TYPE jvm_info counter
+# HELP jvm_info JVM version info
+jvm_info_total{runtime="OpenJDK Runtime Environment",vendor="Ubuntu",version="21.0.8+9-Ubuntu-0ubuntu124.04.1"} 1.0
+# TYPE jvm_memory_committed_bytes gauge
+# HELP jvm_memory_committed_bytes The amount of memory in bytes that is committed for the Java virtual machine to use
+jvm_memory_committed_bytes{area="nonheap",id="CodeHeap 'profiled nmethods'"} 1.5335424E7
+jvm_memory_committed_bytes{area="heap",id="G1 Survivor Space"} 1.6777216E7
+jvm_memory_committed_bytes{area="heap",id="G1 Old Gen"} 3.96361728E8
+jvm_memory_committed_bytes{area="nonheap",id="Metaspace"} 6.8354048E7
+jvm_memory_committed_bytes{area="nonheap",id="CodeHeap 'non-nmethods'"} 4653056.0
+jvm_memory_committed_bytes{area="heap",id="G1 Eden Space"} 6.6060288E8
+jvm_memory_committed_bytes{area="nonheap",id="Compressed Class Space"} 8388608.0
+jvm_memory_committed_bytes{area="nonheap",id="CodeHeap 'non-profiled nmethods'"} 4325376.0
+# TYPE worker_pool_ratio gauge
+# HELP worker_pool_ratio Pool usage ratio
+worker_pool_ratio{pool_name="vert.x-internal-blocking",pool_type="worker"} 0.0
+worker_pool_ratio{pool_name="vert.x-worker-thread",pool_type="worker"} 0.005
+# TYPE http_server_active_connections gauge
+# HELP http_server_active_connections Number of opened connections to the HTTP Server
+http_server_active_connections{server_port="8443"} 1.0
+# TYPE jvm_gc_memory_promoted_bytes counter
+# HELP jvm_gc_memory_promoted_bytes Count of positive increases in the size of the old generation memory pool before GC to after GC
+jvm_gc_memory_promoted_bytes_total 9688704.0
+# TYPE worker_pool_queue_delay_seconds_max gauge
+# HELP worker_pool_queue_delay_seconds_max Time spent in the waiting queue before being processed
+worker_pool_queue_delay_seconds_max{pool_name="vert.x-internal-blocking",pool_type="worker"} 0.0
+worker_pool_queue_delay_seconds_max{pool_name="vert.x-worker-thread",pool_type="worker"} 0.001600311
+# TYPE worker_pool_queue_delay_seconds summary
+# HELP worker_pool_queue_delay_seconds Time spent in the waiting queue before being processed
+worker_pool_queue_delay_seconds_count{pool_name="vert.x-internal-blocking",pool_type="worker"} 2.0
+worker_pool_queue_delay_seconds_sum{pool_name="vert.x-internal-blocking",pool_type="worker"} 7.10096E-4
+worker_pool_queue_delay_seconds_count{pool_name="vert.x-worker-thread",pool_type="worker"} 73.0
+worker_pool_queue_delay_seconds_sum{pool_name="vert.x-worker-thread",pool_type="worker"} 0.044545563
+# TYPE jvm_memory_max_bytes gauge
+# HELP jvm_memory_max_bytes The maximum amount of memory in bytes that can be used for memory management
+jvm_memory_max_bytes{area="nonheap",id="CodeHeap 'profiled nmethods'"} 1.22023936E8
+jvm_memory_max_bytes{area="heap",id="G1 Survivor Space"} -1.0
+jvm_memory_max_bytes{area="heap",id="G1 Old Gen"} 4.294967296E9
+jvm_memory_max_bytes{area="nonheap",id="Metaspace"} -1.0
+jvm_memory_max_bytes{area="nonheap",id="CodeHeap 'non-nmethods'"} 7606272.0
+jvm_memory_max_bytes{area="heap",id="G1 Eden Space"} -1.0
+jvm_memory_max_bytes{area="nonheap",id="Compressed Class Space"} 1.073741824E9
+jvm_memory_max_bytes{area="nonheap",id="CodeHeap 'non-profiled nmethods'"} 1.22028032E8
+# TYPE jvm_threads_live_threads gauge
+# HELP jvm_threads_live_threads The current number of live threads including both daemon and non-daemon threads
+jvm_threads_live_threads 34.0
+# TYPE jvm_gc_overhead gauge
+# HELP jvm_gc_overhead An approximation of the percent of CPU time used by GC activities over the last lookback period or since monitoring began, whichever is shorter, in the range [0..1]
+jvm_gc_overhead 0.0
+# TYPE jvm_gc_memory_allocated_bytes counter
+# HELP jvm_gc_memory_allocated_bytes Incremented for an increase in the size of the (young) heap memory pool after one GC to before the next
+jvm_gc_memory_allocated_bytes_total 1.74063616E8
+# TYPE jvm_gc_live_data_size_bytes gauge
+# HELP jvm_gc_live_data_size_bytes Size of long-lived heap memory pool after reclamation
+jvm_gc_live_data_size_bytes 4.9026936E7
+# TYPE netty_allocator_pooled_cache_size gauge
+# HELP netty_allocator_pooled_cache_size  
+netty_allocator_pooled_cache_size{allocator_type="PooledByteBufAllocator",cache_type="small",name="pooled"} 256.0
+netty_allocator_pooled_cache_size{allocator_type="PooledByteBufAllocator",cache_type="normal",name="vertx-pooled"} 64.0
+netty_allocator_pooled_cache_size{allocator_type="PooledByteBufAllocator",cache_type="normal",name="pooled"} 64.0
+netty_allocator_pooled_cache_size{allocator_type="PooledByteBufAllocator",cache_type="small",name="vertx-pooled"} 256.0
+# TYPE jvm_memory_usage_after_gc gauge
+# HELP jvm_memory_usage_after_gc The percentage of long-lived heap pool used after the last GC event, in the range [0..1]
+jvm_memory_usage_after_gc{area="heap",pool="long-lived"} 0.011414973065257072
+# TYPE process_files_open_files gauge
+# HELP process_files_open_files The open file descriptor count
+process_files_open_files 49.0
+# TYPE jvm_threads_states_threads gauge
+# HELP jvm_threads_states_threads The current number of threads
+jvm_threads_states_threads{state="runnable"} 21.0
+jvm_threads_states_threads{state="blocked"} 0.0
+jvm_threads_states_threads{state="waiting"} 4.0
+jvm_threads_states_threads{state="timed-waiting"} 9.0
+jvm_threads_states_threads{state="new"} 0.0
+jvm_threads_states_threads{state="terminated"} 0.0
+# TYPE worker_pool_completed counter
+# HELP worker_pool_completed Number of times resources from the pool have been acquired
+worker_pool_completed_total{pool_name="vert.x-internal-blocking",pool_type="worker"} 2.0
+worker_pool_completed_total{pool_name="vert.x-worker-thread",pool_type="worker"} 72.0
+# TYPE netty_allocator_pooled_arenas gauge
+# HELP netty_allocator_pooled_arenas  
+netty_allocator_pooled_arenas{allocator_type="PooledByteBufAllocator",memory_type="heap",name="pooled"} 32.0
+netty_allocator_pooled_arenas{allocator_type="PooledByteBufAllocator",memory_type="heap",name="vertx-pooled"} 32.0
+netty_allocator_pooled_arenas{allocator_type="PooledByteBufAllocator",memory_type="direct",name="pooled"} 32.0
+netty_allocator_pooled_arenas{allocator_type="PooledByteBufAllocator",memory_type="direct",name="vertx-pooled"} 32.0
+# TYPE jvm_threads_started_threads counter
+# HELP jvm_threads_started_threads The total number of application threads started in the JVM
+jvm_threads_started_threads_total 70.0
+# TYPE netty_allocator_pooled_chunk_size gauge
+# HELP netty_allocator_pooled_chunk_size  
+netty_allocator_pooled_chunk_size{allocator_type="PooledByteBufAllocator",name="vertx-pooled"} 65536.0
+netty_allocator_pooled_chunk_size{allocator_type="PooledByteBufAllocator",name="pooled"} 65536.0
+# TYPE jvm_classes_loaded_classes gauge
+# HELP jvm_classes_loaded_classes The number of classes that are currently loaded in the Java virtual machine
+jvm_classes_loaded_classes 12850.0
+# TYPE jvm_buffer_memory_used_bytes gauge
+# HELP jvm_buffer_memory_used_bytes An estimate of the memory that the Java virtual machine is using for this buffer pool
+jvm_buffer_memory_used_bytes{id="mapped - 'non-volatile memory'"} 0.0
+jvm_buffer_memory_used_bytes{id="mapped"} 2097152.0
+jvm_buffer_memory_used_bytes{id="direct"} 2.0599017E7
+# TYPE worker_pool_idle gauge
+# HELP worker_pool_idle The number of resources from the pool currently used
+worker_pool_idle{pool_name="vert.x-internal-blocking",pool_type="worker"} 20.0
+worker_pool_idle{pool_name="vert.x-worker-thread",pool_type="worker"} 199.0
+# TYPE jvm_buffer_count_buffers gauge
+# HELP jvm_buffer_count_buffers An estimate of the number of buffers in the pool
+jvm_buffer_count_buffers{id="mapped - 'non-volatile memory'"} 0.0
+jvm_buffer_count_buffers{id="mapped"} 2.0
+jvm_buffer_count_buffers{id="direct"} 150.0
+# TYPE http_server_bytes_read summary
+# HELP http_server_bytes_read Number of bytes received by the server
+http_server_bytes_read_count{server_port="8443"} 15.0
+http_server_bytes_read_sum{server_port="8443"} 157139.0
+# TYPE http_server_bytes_read_max gauge
+# HELP http_server_bytes_read_max Number of bytes received by the server
+http_server_bytes_read_max{server_port="8443"} 0.0
+# TYPE jvm_gc_concurrent_phase_time_seconds summary
+# HELP jvm_gc_concurrent_phase_time_seconds Time spent in concurrent phase
+jvm_gc_concurrent_phase_time_seconds_count{action="end of concurrent GC pause",cause="No GC",gc="G1 Concurrent GC"} 4.0
+jvm_gc_concurrent_phase_time_seconds_sum{action="end of concurrent GC pause",cause="No GC",gc="G1 Concurrent GC"} 0.015
+# TYPE jvm_gc_concurrent_phase_time_seconds_max gauge
+# HELP jvm_gc_concurrent_phase_time_seconds_max Time spent in concurrent phase
+jvm_gc_concurrent_phase_time_seconds_max{action="end of concurrent GC pause",cause="No GC",gc="G1 Concurrent GC"} 0.0
+# TYPE worker_pool_active gauge
+# HELP worker_pool_active The number of resources from the pool currently used
+worker_pool_active{pool_name="vert.x-internal-blocking",pool_type="worker"} 0.0
+worker_pool_active{pool_name="vert.x-worker-thread",pool_type="worker"} 1.0
+# TYPE netty_allocator_memory_used gauge
+# HELP netty_allocator_memory_used  
+netty_allocator_memory_used{allocator_type="UnpooledByteBufAllocator",memory_type="direct",name="vertx-unpooled"} 0.0
+netty_allocator_memory_used{allocator_type="PooledByteBufAllocator",memory_type="heap",name="pooled"} 0.0
+netty_allocator_memory_used{allocator_type="UnpooledByteBufAllocator",memory_type="direct",name="unpooled"} 286.0
+netty_allocator_memory_used{allocator_type="PooledByteBufAllocator",memory_type="heap",name="vertx-pooled"} 0.0
+netty_allocator_memory_used{allocator_type="PooledByteBufAllocator",memory_type="direct",name="pooled"} 1310720.0
+netty_allocator_memory_used{allocator_type="UnpooledByteBufAllocator",memory_type="heap",name="unpooled"} 128.0
+netty_allocator_memory_used{allocator_type="UnpooledByteBufAllocator",memory_type="heap",name="vertx-unpooled"} 157469.0
+netty_allocator_memory_used{allocator_type="PooledByteBufAllocator",memory_type="direct",name="vertx-pooled"} 7602176.0
+# TYPE jvm_memory_used_bytes gauge
+# HELP jvm_memory_used_bytes The amount of used memory
+jvm_memory_used_bytes{area="nonheap",id="CodeHeap 'profiled nmethods'"} 1.527744E7
+jvm_memory_used_bytes{area="heap",id="G1 Survivor Space"} 1.6695992E7
+jvm_memory_used_bytes{area="heap",id="G1 Old Gen"} 4.9026936E7
+jvm_memory_used_bytes{area="nonheap",id="Metaspace"} 6.7815336E7
+jvm_memory_used_bytes{area="nonheap",id="CodeHeap 'non-nmethods'"} 1802880.0
+jvm_memory_used_bytes{area="heap",id="G1 Eden Space"} 1.13246208E8
+jvm_memory_used_bytes{area="nonheap",id="Compressed Class Space"} 8175432.0
+jvm_memory_used_bytes{area="nonheap",id="CodeHeap 'non-profiled nmethods'"} 4293888.0
+# TYPE http_server_active_requests gauge
+# HELP http_server_active_requests  
+http_server_active_requests{server_port="8443",url_scheme="https"} 1.0
+# EOF
+==================================================
+TEST CORE-003: System Information
+==================================================
+Description: Get system version and configuration information
+Method: GET
+Endpoint: /api/v11/info
+Expected Status: 200
+Status: ⚠️  NOT FOUND
+HTTP Code: 404

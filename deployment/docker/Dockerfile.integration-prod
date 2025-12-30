@@ -1,0 +1,101 @@
+################################################################################
+# Dockerfile.integration-prod - Integration Node Production Build
+# Purpose: High-performance light query operations & external API integration
+# Resources: 8-16 CPU cores, 2-4GB RAM
+# Build Type: Production - Ultra-optimized for throughput and reliability
+################################################################################
+
+FROM ghcr.io/graalvm/native-image-community:21-muslib AS build
+
+WORKDIR /build
+COPY .mvn/ .mvn/
+COPY mvnw pom.xml ./
+RUN ./mvnw dependency:go-offline -B
+
+COPY src/ src/
+# Production build with ultra-optimizations (no symbols, aggressive inlining)
+RUN ./mvnw clean package -Pnative-ultra \
+    -DskipTests \
+    -Dquarkus.native.container-build=false \
+    -Dquarkus.native.native-image-xmx=6g \
+    -Dquarkus.native.strip-symbols=true
+
+################################################################################
+# Runtime Stage - Production
+################################################################################
+
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3
+
+RUN microdnf install -y \
+    supervisor \
+    util-linux \
+    procps-ng \
+    libstdc++ \
+    zlib \
+    curl \
+    && microdnf clean all
+
+WORKDIR /app
+
+COPY --from=build --chown=1001:root /build/target/*-runner /app/aurigraph-v11
+COPY --chown=1001:root scripts/multi-node-launcher.sh /app/
+COPY --chown=1001:root config/supervisord-integration.conf /etc/supervisord.conf
+
+RUN mkdir -p /app/logs /app/data /app/pids /app/config /app/api-cache && \
+    chmod +x /app/multi-node-launcher.sh /app/aurigraph-v11
+
+# Production environment with maximum performance
+ENV NODE_TYPE=INTEGRATION \
+    CONSENSUS_ROLE=OBSERVER \
+    BLOCK_PRODUCTION=DISABLED \
+    TRANSACTION_PROCESSING=DISABLED \
+    SMART_CONTRACTS=DISABLED \
+    PUBLIC_API=ENABLED \
+    LIGHT_MODE=true \
+    BUILD_TYPE=production \
+    QUARKUS_LOG_LEVEL=WARN \
+    MIN_CPU=8 \
+    MIN_MEMORY=2G \
+    AURIGRAPH_NODE_COUNT=20
+
+# Production performance settings (ultra-optimized)
+ENV AURIGRAPH_THREAD_POOL_SIZE=192 \
+    AURIGRAPH_BATCH_SIZE=35000 \
+    AURIGRAPH_MEMORY_MODE=optimized \
+    AURIGRAPH_ENABLE_INLINE_CACHING=true \
+    AURIGRAPH_JIT_COMPILATION=enabled \
+    EQUITY_API_ENABLED=true \
+    EQUITY_API_URL=https://api.polygon.io/v1 \
+    EQUITY_API_KEY=${POLYGON_API_KEY} \
+    CRYPTO_API_ENABLED=true \
+    CRYPTO_API_URL=https://api.coingecko.com/api/v3 \
+    WEATHER_API_ENABLED=true \
+    WEATHER_API_URL=https://api.openweathermap.org/data/2.5 \
+    WEATHER_API_KEY=${OPENWEATHER_API_KEY} \
+    NEWS_API_ENABLED=true \
+    NEWS_API_URL=https://newsapi.org/v2 \
+    NEWS_API_KEY=${NEWSAPI_KEY} \
+    API_CACHE_TTL=900 \
+    API_TIMEOUT=5 \
+    API_RETRY_ATTEMPTS=1 \
+    API_CIRCUIT_BREAKER=enabled
+
+# Expose integration ports (20 nodes × 2 ports)
+EXPOSE 9023-9042 9043-9062 8090-8109
+
+# Health check with strict timeout for production
+HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:8090/q/health/ready || exit 1
+
+ENTRYPOINT ["/app/multi-node-launcher.sh"]
+
+LABEL role="integration" \
+      type="light-query-node" \
+      build-type="production" \
+      min-cpu="8" \
+      min-memory="2GB" \
+      max-nodes="20" \
+      version="11.0.0" \
+      optimization-level="ultra" \
+      apis="Polygon,CoinGecko,OpenWeatherMap,NewsAPI"
+

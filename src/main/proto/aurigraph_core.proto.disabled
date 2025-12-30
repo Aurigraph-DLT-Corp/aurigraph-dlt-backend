@@ -1,0 +1,547 @@
+syntax = "proto3";
+
+package io.aurigraph.v11.grpc;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/wrappers.proto";
+
+option java_multiple_files = true;
+option java_package = "io.aurigraph.v11.grpc";
+option java_outer_classname = "AurigraphCoreProto";
+
+/**
+ * Core gRPC Protocol Buffers for Aurigraph V11
+ *
+ * Defines inter-service communication contracts for all major V11 subsystems.
+ * Provides type-safe, efficient serialization for internal gRPC communication.
+ *
+ * Services:
+ * - TransactionService (submit, process, validate transactions)
+ * - ConsensusService (leader election, log replication, heartbeats)
+ * - ContractService (deploy, execute smart contracts)
+ * - TraceabilityService (contract-asset linking and queries)
+ * - CryptoService (signing, verification, key rotation)
+ * - StorageService (state management, indexing)
+ * - NetworkService (peer communication, routing)
+ *
+ * Version: 1.0.0
+ * Generated: November 13, 2025
+ */
+
+// ============================================================================
+// COMMON TYPES
+// ============================================================================
+
+/**
+ * Universal unique identifier
+ */
+message UUID {
+    string value = 1; // e.g., "550e8400-e29b-41d4-a716-446655440000"
+}
+
+/**
+ * Timestamp in ISO 8601 format
+ */
+message Timestamp {
+    int64 seconds = 1;        // Seconds since epoch
+    int32 nanos = 2;          // Nanoseconds component
+    string iso8601 = 3;       // ISO 8601 string representation
+}
+
+/**
+ * Generic status response
+ */
+message Status {
+    enum Code {
+        OK = 0;
+        INVALID_ARGUMENT = 1;
+        DEADLINE_EXCEEDED = 2;
+        NOT_FOUND = 3;
+        ALREADY_EXISTS = 4;
+        PERMISSION_DENIED = 5;
+        RESOURCE_EXHAUSTED = 6;
+        FAILED_PRECONDITION = 7;
+        ABORTED = 8;
+        INTERNAL = 9;
+        UNAVAILABLE = 10;
+    }
+    Code code = 1;
+    string message = 2;
+    map<string, string> details = 3;
+}
+
+/**
+ * Request/Response envelope
+ */
+message RequestEnvelope {
+    UUID request_id = 1;
+    Timestamp timestamp = 2;
+    bytes payload = 3;
+    map<string, string> metadata = 4;
+}
+
+message ResponseEnvelope {
+    UUID request_id = 1;
+    UUID response_id = 2;
+    Timestamp timestamp = 3;
+    Status status = 4;
+    bytes payload = 5;
+    map<string, string> metadata = 6;
+}
+
+// ============================================================================
+// TRANSACTION SERVICE (Internal Communication)
+// ============================================================================
+
+// Transaction messages and service definitions are in transaction.proto
+// See: transaction.proto for TransactionService RPC definitions
+
+// ============================================================================
+// CONSENSUS SERVICE
+// ============================================================================
+
+// Consensus messages and service definitions are in consensus.proto
+// See: consensus.proto for ConsensusService RPC definitions
+
+// ============================================================================
+// CONTRACT SERVICE
+// ============================================================================
+
+/**
+ * Smart contract code and metadata
+ */
+message SmartContract {
+    string contract_id = 1;
+    string contract_name = 2;
+    string owner_address = 3;
+    bytes bytecode = 4;
+    string abi = 5;  // JSON ABI specification
+    string version = 6;
+    Timestamp deployed_at = 7;
+    string status = 8;  // ACTIVE, PAUSED, DESTROYED
+    map<string, string> metadata = 9;
+}
+
+/**
+ * Contract deployment request
+ */
+message DeployContractRequest {
+    string contract_name = 1;
+    bytes bytecode = 2;
+    string abi = 3;
+    string owner_address = 4;
+    map<string, string> init_params = 5;
+    int64 gas_limit = 6;
+}
+
+message DeployContractResponse {
+    string contract_id = 1;
+    string contract_address = 2;
+    Status status = 3;
+    Timestamp deployed_at = 4;
+    int64 gas_used = 5;
+}
+
+/**
+ * Contract execution request
+ */
+message ExecuteContractRequest {
+    string contract_id = 1;
+    string method = 2;
+    repeated bytes arguments = 3;
+    string caller_address = 4;
+    int64 gas_limit = 5;
+    int64 value = 6;  // Wei value sent with call
+}
+
+message ExecuteContractResponse {
+    string execution_id = 1;
+    bytes return_value = 2;
+    Status status = 3;
+    int64 gas_used = 4;
+    repeated string logs = 5;
+    Timestamp executed_at = 6;
+}
+
+/**
+ * Contract state query
+ */
+message GetContractRequest {
+    string contract_id = 1;
+}
+
+message GetContractResponse {
+    SmartContract contract = 1;
+    Status status = 2;
+}
+
+// Contract Service Definition
+service ContractService {
+    // Deploy a smart contract
+    rpc DeployContract(DeployContractRequest)
+        returns (DeployContractResponse);
+
+    // Execute contract method
+    rpc ExecuteContract(ExecuteContractRequest)
+        returns (ExecuteContractResponse);
+
+    // Get contract details
+    rpc GetContract(GetContractRequest)
+        returns (GetContractResponse);
+
+    // Get contract state variable
+    rpc GetState(google.protobuf.StringValue)
+        returns (google.protobuf.BytesValue);
+
+    // Stream contract events
+    rpc StreamContractEvents(GetContractRequest)
+        returns (stream Status);
+}
+
+// ============================================================================
+// TRACEABILITY SERVICE
+// ============================================================================
+
+/**
+ * Contract-Asset Link (Protocol Buffer version)
+ */
+message GRPCContractAssetLink {
+    string link_id = 1;
+    string contract_id = 2;
+    string contract_name = 3;
+    string asset_id = 4;
+    string asset_name = 5;
+    string asset_type = 6;  // REAL_ESTATE, COMMODITY, SECURITY, etc.
+    double asset_valuation = 7;
+    string token_id = 8;
+    string token_symbol = 9;
+    int64 total_shares = 10;
+    int64 shares_outstanding = 11;
+    Timestamp linked_at = 12;
+    Timestamp tokenized_at = 13;
+    Timestamp completed_at = 14;
+    int32 execution_count = 15;
+    int32 failure_count = 16;
+    double success_rate = 17;
+    string compliance_status = 18;  // PENDING_VERIFICATION, TOKENIZED
+    string risk_level = 19;  // LOW, MEDIUM, HIGH
+}
+
+/**
+ * Create traceability link request
+ */
+message CreateLinkRequest {
+    string contract_id = 1;
+    string contract_name = 2;
+    string asset_id = 3;
+    string asset_name = 4;
+    string asset_type = 5;
+    double asset_valuation = 6;
+    string token_id = 7;
+    string token_symbol = 8;
+}
+
+message CreateLinkResponse {
+    GRPCContractAssetLink link = 1;
+    Status status = 2;
+    Timestamp created_at = 3;
+}
+
+/**
+ * Get lineage request/response
+ */
+message GetLineageRequest {
+    string contract_id = 1;
+}
+
+message GetLineageResponse {
+    string contract_id = 1;
+    repeated GRPCContractAssetLink assets = 2;
+    double total_asset_valuation = 3;
+    int64 total_tokens_issued = 4;
+    Status status = 5;
+}
+
+/**
+ * Search links request/response
+ */
+message SearchLinksRequest {
+    string asset_type = 1;       // Optional filter
+    string compliance_status = 2;  // Optional filter
+    string risk_level = 3;       // Optional filter
+}
+
+message SearchLinksResponse {
+    repeated GRPCContractAssetLink links = 1;
+    int32 total_results = 2;
+    Status status = 3;
+}
+
+// Traceability Service Definition
+service TraceabilityService {
+    // Create contract-asset link
+    rpc CreateLink(CreateLinkRequest)
+        returns (CreateLinkResponse);
+
+    // Get complete lineage
+    rpc GetLineage(GetLineageRequest)
+        returns (GetLineageResponse);
+
+    // Search links by criteria
+    rpc SearchLinks(SearchLinksRequest)
+        returns (SearchLinksResponse);
+
+    // Get link by ID
+    rpc GetLink(google.protobuf.StringValue)
+        returns (GRPCContractAssetLink);
+
+    // Update link (valuation, tokenization, etc.)
+    rpc UpdateLink(GRPCContractAssetLink)
+        returns (Status);
+}
+
+// ============================================================================
+// CRYPTOGRAPHY SERVICE
+// ============================================================================
+
+/**
+ * Signature request
+ */
+message SignRequest {
+    bytes message = 1;
+    string key_id = 2;
+    string algorithm = 3;  // DILITHIUM, SPHINCS
+}
+
+message SignResponse {
+    bytes signature = 1;
+    string key_id = 2;
+    Timestamp signed_at = 3;
+    Status status = 4;
+}
+
+/**
+ * Verification request
+ */
+message VerifyRequest {
+    bytes message = 1;
+    bytes signature = 2;
+    string key_id = 3;
+    string algorithm = 4;
+}
+
+message VerifyResponse {
+    bool is_valid = 1;
+    Status status = 2;
+    Timestamp verified_at = 3;
+}
+
+/**
+ * Key information
+ */
+message KeyInfo {
+    string key_id = 1;
+    string algorithm = 2;
+    string key_type = 3;  // PUBLIC, PRIVATE
+    bytes public_key = 4;
+    Timestamp created_at = 5;
+    Timestamp expires_at = 6;
+    bool is_active = 7;
+}
+
+/**
+ * Key rotation request
+ */
+message RotateKeyRequest {
+    string key_id = 1;
+    string algorithm = 2;
+}
+
+message RotateKeyResponse {
+    KeyInfo new_key = 1;
+    KeyInfo old_key = 2;
+    Status status = 3;
+    Timestamp rotated_at = 4;
+}
+
+// Cryptography Service Definition
+service CryptoService {
+    // Sign a message
+    rpc Sign(SignRequest)
+        returns (SignResponse);
+
+    // Verify a signature
+    rpc Verify(VerifyRequest)
+        returns (VerifyResponse);
+
+    // Get key information
+    rpc GetKey(google.protobuf.StringValue)
+        returns (KeyInfo);
+
+    // Rotate keys
+    rpc RotateKey(RotateKeyRequest)
+        returns (RotateKeyResponse);
+
+    // List all keys
+    rpc ListKeys(google.protobuf.Empty)
+        returns (stream KeyInfo);
+}
+
+// ============================================================================
+// STORAGE SERVICE
+// ============================================================================
+
+/**
+ * Key-value pair for state storage
+ */
+message StateEntry {
+    string key = 1;
+    bytes value = 2;
+    int64 version = 3;
+    Timestamp last_modified = 4;
+}
+
+/**
+ * Put request
+ */
+message PutRequest {
+    string key = 1;
+    bytes value = 2;
+    bool overwrite = 3;
+}
+
+message PutResponse {
+    bool success = 1;
+    int64 version = 2;
+    Status status = 3;
+}
+
+/**
+ * Get request
+ */
+message GetRequest {
+    string key = 1;
+    int64 version = 2;  // Optional: specific version
+}
+
+message GetResponse {
+    StateEntry entry = 1;
+    Status status = 2;
+}
+
+/**
+ * Delete request
+ */
+message DeleteRequest {
+    string key = 1;
+}
+
+message DeleteResponse {
+    bool success = 1;
+    Status status = 2;
+}
+
+/**
+ * Range query request
+ */
+message RangeRequest {
+    string start_key = 1;
+    string end_key = 2;
+    int32 limit = 3;
+}
+
+message RangeResponse {
+    repeated StateEntry entries = 1;
+    int32 total_count = 2;
+    bool has_more = 3;
+    Status status = 4;
+}
+
+// Storage Service Definition
+service StorageService {
+    // Put a state entry
+    rpc Put(PutRequest)
+        returns (PutResponse);
+
+    // Get a state entry
+    rpc Get(GetRequest)
+        returns (GetResponse);
+
+    // Delete a state entry
+    rpc Delete(DeleteRequest)
+        returns (DeleteResponse);
+
+    // Range query
+    rpc Range(RangeRequest)
+        returns (RangeResponse);
+
+    // Stream state changes
+    rpc StreamStateChanges(google.protobuf.Empty)
+        returns (stream StateEntry);
+}
+
+// ============================================================================
+// NETWORK SERVICE
+// ============================================================================
+
+/**
+ * Peer information
+ */
+message PeerInfo {
+    string peer_id = 1;
+    string host = 2;
+    int32 port = 3;
+    string version = 4;
+    bool is_connected = 5;
+    Timestamp connected_at = 6;
+    int64 latency_ms = 7;
+}
+
+/**
+ * Message routing
+ */
+message RoutedMessage {
+    string message_id = 1;
+    string sender_id = 2;
+    string recipient_id = 3;
+    bytes payload = 4;
+    int32 ttl = 5;  // Time to live
+    Timestamp sent_at = 6;
+}
+
+/**
+ * Broadcast message
+ */
+message BroadcastMessage {
+    string message_id = 1;
+    string sender_id = 2;
+    bytes payload = 3;
+    int32 ttl = 4;
+    Timestamp sent_at = 5;
+}
+
+// Network Service Definition
+service NetworkService {
+    // Get peer list
+    rpc GetPeers(google.protobuf.Empty)
+        returns (stream PeerInfo);
+
+    // Send routed message
+    rpc SendMessage(RoutedMessage)
+        returns (Status);
+
+    // Broadcast message
+    rpc Broadcast(BroadcastMessage)
+        returns (Status);
+
+    // Stream incoming messages
+    rpc ReceiveMessages(google.protobuf.Empty)
+        returns (stream RoutedMessage);
+}
+
+// ============================================================================
+// IMPORTS PLACEHOLDER
+// ============================================================================
+
+// Note: Actual proto file would import google/protobuf/empty.proto
+// and google/protobuf/wrappers.proto, but showing simplified version here

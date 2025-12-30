@@ -1,0 +1,189 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aurigraph-v11-config
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: configuration
+data:
+  # Application configuration optimized for native deployment
+  application-prod.properties: |
+    # Aurigraph V11 Production Configuration for Native Deployment
+    quarkus.application.name=aurigraph-v11-native
+    quarkus.application.version=11.0.0
+    
+    # HTTP Configuration for High Performance
+    quarkus.http.port=9003
+    quarkus.http.host=0.0.0.0
+    quarkus.http.http2=true
+    quarkus.http.limits.max-concurrent-streams=20000
+    quarkus.http.limits.max-frame-size=16777215
+    quarkus.http.limits.initial-window-size=2097152
+    quarkus.http.limits.max-header-size=65536
+    quarkus.http.so-reuse-port=true
+    quarkus.http.tcp-quick-ack=true
+    quarkus.http.tcp-cork=true
+    quarkus.http.tcp-fast-open=true
+    
+    # gRPC Configuration for Maximum TPS
+    quarkus.grpc.server.port=9004
+    quarkus.grpc.server.host=0.0.0.0
+    quarkus.grpc.server.use-separate-server=true
+    quarkus.grpc.server.enable-reflection-service=false
+    quarkus.grpc.server.keep-alive-time=30
+    quarkus.grpc.server.keep-alive-timeout=5
+    quarkus.grpc.server.permit-keep-alive-time=5
+    quarkus.grpc.server.permit-keep-alive-without-calls=true
+    quarkus.grpc.server.max-inbound-message-size=33554432
+    quarkus.grpc.server.max-inbound-metadata-size=65536
+    
+    # Logging Configuration
+    quarkus.log.level=INFO
+    quarkus.log.console.enable=true
+    quarkus.log.console.format=%d{HH:mm:ss} %-5p [%c{2.}] (%t) %s%e%n
+    quarkus.log.console.json=false
+    
+    # Health and Metrics
+    quarkus.smallrye-health.root-path=/q/health
+    quarkus.micrometer.enabled=true
+    quarkus.micrometer.export.prometheus.enabled=true
+    quarkus.micrometer.export.prometheus.path=/q/metrics
+    
+    # Virtual Threads for Maximum Concurrency
+    quarkus.virtual-threads.enabled=true
+    quarkus.virtual-threads.name-pattern=aurigraph-vt-#
+    
+    # HyperRAFT++ Consensus Production Settings
+    consensus.batch.size=75000
+    consensus.pipeline.depth=64
+    consensus.parallel.threads=1024
+    consensus.target.tps=5000000
+    consensus.election.timeout.ms=300
+    consensus.heartbeat.interval.ms=30
+    consensus.leader.lease.duration.ms=5000
+    consensus.log.compaction.enabled=true
+    consensus.log.compaction.interval.ms=300000
+    
+    # AI Optimization Production Settings
+    ai.optimization.enabled=true
+    ai.optimization.target.tps=3000000
+    ai.optimization.learning.rate=0.0001
+    ai.optimization.model.update.interval.ms=5000
+    ai.optimization.prediction.window.ms=2000
+    ai.optimization.anomaly.threshold=0.98
+    ai.optimization.min.confidence=0.90
+    
+    # Predictive Routing Engine
+    routing.prediction.enabled=true
+    routing.prediction.window.ms=500
+    routing.load.balance.threshold=0.85
+    routing.congestion.threshold=0.80
+    routing.node.count=10
+    routing.prediction.accuracy.target=0.95
+    
+    # ML Load Balancer
+    ml.loadbalancer.enabled=true
+    ml.loadbalancer.algorithm=REINFORCEMENT_LEARNING
+    ml.loadbalancer.rebalance.interval.ms=3000
+    ml.loadbalancer.prediction.window.ms=5000
+    ml.loadbalancer.resource.count=16
+    ml.loadbalancer.load.threshold=0.85
+    ml.loadbalancer.learning.rate=0.005
+    ml.loadbalancer.exploration.rate=0.05
+    
+    # Adaptive Batch Processor
+    batch.processor.enabled=true
+    batch.processor.min.size=1000
+    batch.processor.max.size=100000
+    batch.processor.default.size=50000
+    batch.processor.timeout.ms=2000
+    batch.processor.adaptation.interval.ms=1000
+    batch.processor.parallel.workers=32
+    batch.processor.compression.enabled=true
+    batch.processor.priority.levels=10
+    
+    # Performance Tuning
+    grpc.max-concurrent-streams=20000
+    grpc.initial-window-size=2097152
+    grpc.max-frame-size=33554432
+    grpc.keep-alive-time=30
+    grpc.keep-alive-timeout=5
+    grpc.event-loop-threads=0
+    grpc.use-epoll=true
+    
+    # Connection Pool Configuration
+    grpc.pool.max-connections=2000
+    grpc.pool.min-connections=50
+    grpc.pool.connection-timeout=15
+    grpc.pool.health-check-interval=5
+    grpc.pool.max-idle-time=300
+    
+    # Stream Compression
+    grpc.compression.enabled=true
+    grpc.compression.algorithm=gzip
+    grpc.compression.min-size=512
+    grpc.compression.level=6
+    grpc.compression.adaptive=true
+    
+    # Load Balancer Configuration
+    grpc.lb.algorithm=LEAST_CONNECTIONS
+    grpc.lb.health-check-interval=3
+    grpc.lb.failover-threshold=2
+    grpc.lb.recovery-interval=15
+    grpc.lb.sticky-sessions=false
+  
+  # Kubernetes-specific settings
+  kubernetes.properties: |
+    # Kubernetes Integration Settings
+    quarkus.kubernetes.deployment-target=kubernetes
+    quarkus.kubernetes.replicas=3
+    
+    # Service Discovery
+    quarkus.kubernetes-client.trust-certs=true
+    quarkus.kubernetes-client.namespace=aurigraph-system
+    
+    # Resource Management
+    quarkus.kubernetes.resources.requests.memory=128Mi
+    quarkus.kubernetes.resources.requests.cpu=100m
+    quarkus.kubernetes.resources.limits.memory=512Mi
+    quarkus.kubernetes.resources.limits.cpu=2000m
+    
+    # Health Checks
+    quarkus.kubernetes.liveness-probe.initial-delay=5s
+    quarkus.kubernetes.liveness-probe.period=10s
+    quarkus.kubernetes.readiness-probe.initial-delay=2s
+    quarkus.kubernetes.readiness-probe.period=5s
+    quarkus.kubernetes.startup-probe.initial-delay=1s
+    quarkus.kubernetes.startup-probe.period=1s
+  
+  # Monitoring configuration
+  monitoring.properties: |
+    # Prometheus Metrics Configuration
+    management.metrics.enabled=true
+    management.metrics.export.prometheus.enabled=true
+    management.metrics.distribution.percentiles-histogram.http.server.requests=true
+    management.metrics.distribution.percentiles-histogram.grpc.server.requests=true
+    
+    # Custom Metrics
+    aurigraph.metrics.tps.enabled=true
+    aurigraph.metrics.consensus.enabled=true
+    aurigraph.metrics.ai.enabled=true
+    aurigraph.metrics.network.enabled=true
+    aurigraph.metrics.crypto.enabled=true
+    
+    # Health Check Configuration
+    management.health.defaults.enabled=true
+    management.health.diskspace.enabled=true
+    management.health.ping.enabled=true
+    
+  # JVM tuning for native binary
+  jvm-options: |
+    # Native binary doesn't use JVM but these are for reference if needed
+    -XX:+UseG1GC
+    -XX:MaxGCPauseMillis=1
+    -XX:G1HeapRegionSize=32m
+    -XX:+UseStringDeduplication
+    -XX:+OptimizeStringConcat
+    -XX:+UseCompressedOops
+    -XX:+UseCompressedClassPointers

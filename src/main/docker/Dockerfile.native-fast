@@ -1,0 +1,86 @@
+####
+# Aurigraph V11 Fast Native Dockerfile
+# 
+# Fast development build targeting:
+# - <1s startup time
+# - ~60MB binary size
+# - Quick build cycle (~2-3 minutes)
+# - Development-friendly features enabled
+#
+# Build: docker build -f src/main/docker/Dockerfile.native-fast -t aurigraph/v11-fast:latest .
+# Run:   docker run -p 9003:9003 -p 9004:9004 aurigraph/v11-fast:latest
+####
+
+# Stage 1: Fast Build Environment
+FROM quay.io/quarkus/ubi-quarkus-mandrel:24-java21 AS fast-builder
+
+# Fast build environment
+ENV MAVEN_OPTS="-Xmx4g -XX:+UseG1GC"
+ENV GRAALVM_HOME="/opt/mandrel"
+ENV JAVA_HOME="/opt/mandrel"
+ENV PATH="$GRAALVM_HOME/bin:$PATH"
+
+# Minimal build tools
+USER root
+RUN microdnf update -y && \
+    microdnf install -y gcc glibc-devel && \
+    microdnf clean all
+
+WORKDIR /build
+
+# Copy build files
+COPY --chown=quarkus:quarkus mvnw mvnw.cmd pom.xml ./
+COPY --chown=quarkus:quarkus .mvn/ .mvn/
+
+USER quarkus
+
+# Quick dependency resolution
+RUN ./mvnw dependency:resolve -B --no-transfer-progress
+
+# Copy source
+COPY --chown=quarkus:quarkus src/ src/
+
+# Fast native build with minimal optimizations
+RUN echo "Starting fast native build at $(date)" && \
+    time ./mvnw package -Pnative-fast \
+        -Dquarkus.native.container-build=false \
+        -Dquarkus.native.native-image-xmx=4g \
+        -Dmaven.test.skip=true \
+        -B --no-transfer-progress && \
+    echo "Fast build completed at $(date)"
+
+# Stage 2: Lightweight Runtime
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest AS runtime
+
+# Install minimal runtime dependencies
+RUN microdnf install -y glibc libgcc && \
+    microdnf clean all
+
+WORKDIR /app
+
+# Copy binary
+COPY --from=fast-builder --chown=1001:1001 /build/target/*-runner ./aurigraph-v11
+
+# Basic configuration
+COPY --from=fast-builder --chown=1001:1001 \
+     /build/src/main/resources/application.properties ./
+
+# Development-friendly environment
+ENV AURIGRAPH_NATIVE_MODE=true
+ENV AURIGRAPH_DEV_MODE=true
+ENV QUARKUS_LOG_LEVEL=DEBUG
+
+# Health check
+HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:9003/q/health || exit 1
+
+# Expose ports
+EXPOSE 9003 9004
+
+# Development user
+USER 1001:1001
+
+# Simple entrypoint for development
+ENTRYPOINT ["/app/aurigraph-v11", \
+    "-Dquarkus.http.host=0.0.0.0", \
+    "-Dquarkus.grpc.server.host=0.0.0.0"]

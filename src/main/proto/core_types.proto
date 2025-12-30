@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+package io.aurigraph.v11.proto;
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+
+option java_multiple_files = true;
+option java_package = "io.aurigraph.v11.proto";
+option java_outer_classname = "CoreTypesProto";
+
+/**
+ * Core Types Protocol Buffer Definitions
+ *
+ * This proto file contains shared message types used across multiple services:
+ * - TransactionService
+ * - BlockchainService
+ * - ConsensusService
+ *
+ * Purpose: Single-source-of-truth for core blockchain data structures
+ * to prevent duplicate class generation when imported by multiple proto files.
+ *
+ * Messages defined here:
+ * 1. ValidationError - Used by BlockValidationResult, TransactionSignatureValidationResult
+ * 2. ValidatorInfo - Used by BlockDetailsResponse, ConsensusStateResponse
+ * 3. Transaction - Core transaction message used across all services
+ */
+
+// ============================================================================
+// Validation Error
+// ============================================================================
+
+/**
+ * ValidationError describes a single validation failure
+ * Used by blockchain and transaction services
+ */
+message ValidationError {
+  string error_code = 1;               // Error identifier (e.g., "SIG_INVALID")
+  string error_message = 2;            // Human-readable message
+  string error_details = 3;            // Additional context
+  int32 error_severity = 4;            // 1=Low, 2=Medium, 3=High
+}
+
+// ============================================================================
+// Validator Information
+// ============================================================================
+
+/**
+ * ValidatorInfo contains validator metadata
+ * Used by blockchain and consensus services
+ */
+message ValidatorInfo {
+  string validator_id = 1;             // Unique validator ID
+  string public_key = 2;               // Validator's public key (hex)
+  bool is_active = 3;                  // Whether validator is currently active
+  int32 signature_count = 4;           // Number of signatures by validator
+  double reputation_score = 5;         // Reputation score (0-100)
+}
+
+// ============================================================================
+// Transaction
+// ============================================================================
+
+/**
+ * Transaction represents a single blockchain transaction
+ * Core data structure for all transaction operations
+ * Used by blockchain service, transaction service, and consensus service
+ */
+message Transaction {
+  // Transaction identification
+  string transaction_hash = 1;         // Unique tx hash (SHA256)
+  string transaction_id = 2;           // Unique tx identifier (UUID)
+
+  // Transaction parties
+  string from_address = 3;             // Sender address
+  string to_address = 4;               // Recipient address
+
+  // Transaction value
+  string amount = 5;                   // Amount (as string for precision)
+  double gas_price = 6;                // Gas price in wei
+  double gas_limit = 7;                // Maximum gas allowed
+  double gas_used = 8;                 // Actual gas used (0 if pending)
+
+  // Transaction data
+  string data = 9;                     // Smart contract data/payload
+  int32 nonce = 10;                    // Transaction nonce (anti-replay)
+
+  // Timestamps and status
+  google.protobuf.Timestamp created_at = 11;   // Creation timestamp
+  google.protobuf.Timestamp executed_at = 12;  // Execution timestamp (0 if pending)
+  TransactionStatus status = 13;                // Current transaction status
+
+  // Signature and verification
+  string signature = 14;               // Transaction signature
+  string public_key = 15;              // Sender's public key (for verification)
+}

@@ -1,0 +1,209 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: aurigraph-high-performance
+  labels:
+    app: aurigraph-v11
+    component: storage
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+  iops: "16000"      # High IOPS for transaction processing
+  throughput: "1000"  # High throughput for data streaming
+  fsType: ext4
+  encrypted: "true"
+allowVolumeExpansion: true
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aurigraph-v11-data
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: aurigraph-high-performance
+  resources:
+    requests:
+      storage: 100Gi  # Initial storage for blockchain data
+  selector:
+    matchLabels:
+      app: aurigraph-v11
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aurigraph-v11-logs
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: logging
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: aurigraph-high-performance
+  resources:
+    requests:
+      storage: 20Gi   # Log storage
+  selector:
+    matchLabels:
+      app: aurigraph-v11
+      type: logs
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aurigraph-v11-secrets
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: security
+type: Opaque
+data:
+  # Base64 encoded secrets (replace with actual values)
+  quantum-key-seed: YXVyaWdyYXBoLXY1LXF1YW50dW0ta2V5LXNlZWQtMjAyNA==
+  jwt-secret: YXVyaWdyYXBoLXY1LWp3dC1zZWNyZXQtaGlnaC1zZWN1cml0eQ==
+  database-password: YXVyaWdyYXBoLWRhdGFiYXNlLXBhc3N3b3JkLXNlY3VyZQ==
+  api-key: YXVyaWdyYXBoLWFwaS1rZXktdjUtcHJvZHVjdGlvbg==
+  tls-private-key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCi4uLgotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0t
+  tls-certificate: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCi4uLgotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0t
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aurigraph-registry-secret
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: registry
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: eyJhdXRocyI6eyJhdXJpZ3JhcGgucmVnaXN0cnkuaW8iOnsidXNlcm5hbWUiOiJhdXJpZ3JhcGgiLCJwYXNzd29yZCI6InNlY3VyZS1wYXNzd29yZCIsImF1dGgiOiJZWFZ5YVdkeVlYQm9Pbk5sWTNWeVpTMXdZWE56ZDI5eVpBPT0ifX19
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aurigraph-system
+  labels:
+    name: aurigraph-system
+    app: aurigraph-v11
+    purpose: dlt-platform
+    security-policy: high-security
+  annotations:
+    scheduler.alpha.kubernetes.io/node-selector: node-type=high-performance
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: aurigraph-v11-sa
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: security
+automountServiceAccountToken: true
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: aurigraph-system
+  name: aurigraph-v11-role
+  labels:
+    app: aurigraph-v11
+    component: security
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps", "secrets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods/exec", "pods/log"]
+  verbs: ["create", "get"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["pods", "nodes"]
+  verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: aurigraph-v11-rolebinding
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: security
+subjects:
+- kind: ServiceAccount
+  name: aurigraph-v11-sa
+  namespace: aurigraph-system
+roleRef:
+  kind: Role
+  name: aurigraph-v11-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: aurigraph-v11-limits
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: resource-management
+spec:
+  limits:
+  - default:
+      memory: "512Mi"
+      cpu: "1000m"
+    defaultRequest:
+      memory: "128Mi"
+      cpu: "100m"
+    max:
+      memory: "2Gi"
+      cpu: "4000m"
+    min:
+      memory: "64Mi"
+      cpu: "50m"
+    type: Container
+  - default:
+      storage: "10Gi"
+    max:
+      storage: "1Ti"
+    min:
+      storage: "1Gi"
+    type: PersistentVolumeClaim
+
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: aurigraph-v11-quota
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: resource-management
+spec:
+  hard:
+    requests.cpu: "10"
+    requests.memory: 20Gi
+    limits.cpu: "50"
+    limits.memory: 100Gi
+    pods: "50"
+    persistentvolumeclaims: "10"
+    services: "10"
+    secrets: "20"
+    configmaps: "20"
+    requests.storage: "1Ti"

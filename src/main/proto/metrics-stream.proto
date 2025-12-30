@@ -1,0 +1,395 @@
+syntax = "proto3";
+
+package io.aurigraph.v11.proto;
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+
+option java_multiple_files = true;
+option java_package = "io.aurigraph.v11.proto";
+option java_outer_classname = "MetricsStreamProto";
+
+/**
+ * Metrics Stream Protocol Buffer Definitions
+ *
+ * Replaces WebSocket /ws/metrics endpoint with gRPC-Web streaming.
+ * Optimized for high-frequency performance metrics updates.
+ *
+ * Target Performance:
+ * - Update frequency: 1-5 seconds
+ * - Payload size: ~500 bytes (vs ~2KB JSON)
+ * - Bandwidth: ~0.5 KB/s per client (vs ~2 KB/s WebSocket+JSON)
+ */
+
+// ============================================================================
+// Core Metrics Messages
+// ============================================================================
+
+message PerformanceMetricsUpdate {
+  google.protobuf.Timestamp timestamp = 1;
+  string node_id = 2;
+
+  // Transaction Performance
+  TransactionMetrics transactions = 3;
+
+  // Consensus Performance
+  ConsensusPerformance consensus = 4;
+
+  // Network Performance
+  NetworkMetrics network = 5;
+
+  // System Resources
+  SystemMetrics system = 6;  // Reuse from common.proto
+
+  // Storage Performance
+  StorageMetrics storage = 7;
+
+  // AI Optimization Metrics
+  AIMetrics ai_metrics = 8;
+}
+
+message TransactionMetrics {
+  // TPS (Transactions Per Second)
+  TPSMetrics tps = 1;
+
+  // Latency
+  LatencyMetrics latency = 2;
+
+  // Queue Stats
+  QueueMetrics queue = 3;
+
+  // Success/Failure Rates
+  double success_rate = 4;
+  double failure_rate = 5;
+  int64 rejected_count = 6;
+
+  // Gas Metrics
+  GasMetrics gas = 7;
+}
+
+message TPSMetrics {
+  // Current TPS (instantaneous)
+  int64 current = 1;
+
+  // Moving averages
+  int64 avg_1m = 2;
+  int64 avg_5m = 3;
+  int64 avg_1h = 4;
+
+  // Peak values
+  int64 peak_1m = 5;
+  int64 peak_1h = 6;
+  int64 peak_24h = 7;
+
+  // Trend indicator
+  double trend_percent = 8;  // Positive = increasing
+
+  // Target comparison
+  int64 target_tps = 9;       // e.g., 2,000,000
+  double achievement_percent = 10;  // (current / target) * 100
+}
+
+message LatencyMetrics {
+  // Latency distribution (milliseconds)
+  double avg = 1;
+  double min = 2;
+  double max = 3;
+  double p50 = 4;  // Median
+  double p95 = 5;
+  double p99 = 6;
+  double p999 = 7;
+
+  // Finality latency
+  double finality_avg_ms = 8;
+  double finality_p99_ms = 9;
+
+  // Latency breakdown
+  double validation_ms = 10;
+  double consensus_ms = 11;
+  double execution_ms = 12;
+  double commit_ms = 13;
+}
+
+message QueueMetrics {
+  int32 pending = 1;
+  int32 processing = 2;
+  int32 completed = 3;
+  int32 failed = 4;
+
+  double avg_wait_time_ms = 5;
+  double max_wait_time_ms = 6;
+
+  int32 queue_capacity = 7;
+  double utilization_percent = 8;
+}
+
+message GasMetrics {
+  double avg_gas_price = 1;
+  double min_gas_price = 2;
+  double max_gas_price = 3;
+
+  int64 total_gas_used = 4;
+  int64 gas_limit_per_block = 5;
+  double gas_utilization_percent = 6;
+}
+
+message ConsensusPerformance {
+  // HyperRAFT++ Metrics
+  string leader_node_id = 1;
+  int64 term = 2;
+  int64 commit_index = 3;
+  int64 last_applied = 4;
+
+  // Block Production
+  double avg_block_time_ms = 5;
+  int32 blocks_produced_1m = 6;
+  int32 blocks_produced_1h = 7;
+
+  // Voting Performance
+  double avg_voting_time_ms = 8;
+  int32 successful_votes = 9;
+  int32 failed_votes = 10;
+  double vote_success_rate = 11;
+
+  // Leader Stability
+  int32 leader_changes_last_hour = 12;
+  google.protobuf.Timestamp last_election = 13;
+  double leadership_stability_score = 14;  // 0-100
+
+  // Consensus Efficiency
+  double consensus_overhead_percent = 15;  // Time spent on consensus vs execution
+  int32 pending_proposals = 16;
+}
+
+message NetworkMetrics {
+  // Peer Connections
+  int32 connected_peers = 1;
+  int32 max_peers = 2;
+  double peer_utilization_percent = 3;
+
+  // Network Throughput
+  int64 bytes_sent_per_sec = 4;
+  int64 bytes_received_per_sec = 5;
+  int64 messages_sent_per_sec = 6;
+  int64 messages_received_per_sec = 7;
+
+  // Peer Latency
+  double avg_peer_latency_ms = 8;
+  double p95_peer_latency_ms = 9;
+
+  // Connection Quality
+  int32 dropped_connections_1m = 10;
+  double connection_success_rate = 11;
+
+  // Bandwidth Utilization
+  double bandwidth_utilization_percent = 12;
+  int64 bandwidth_limit_mbps = 13;
+}
+
+message StorageMetrics {
+  // Database Sizes
+  int64 blockchain_size_bytes = 1;
+  int64 state_db_size_bytes = 2;
+  int64 rocksdb_size_bytes = 3;
+
+  // I/O Performance
+  int64 disk_reads_per_sec = 4;
+  int64 disk_writes_per_sec = 5;
+  double disk_read_latency_ms = 6;
+  double disk_write_latency_ms = 7;
+
+  // Cache Performance
+  double block_cache_hit_rate = 8;
+  double state_cache_hit_rate = 9;
+  int64 cache_size_bytes = 10;
+
+  // Compaction (RocksDB)
+  int32 pending_compactions = 11;
+  double compaction_cpu_percent = 12;
+}
+
+message AIMetrics {
+  // AI Optimization Status
+  bool ai_enabled = 1;
+  string model_version = 2;
+
+  // Performance Impact
+  double ai_tps_improvement_percent = 3;  // TPS increase due to AI
+  double ai_latency_reduction_percent = 4;
+
+  // Model Performance
+  double model_accuracy = 5;
+  double model_latency_ms = 6;
+  int64 predictions_per_sec = 7;
+
+  // Optimization Effectiveness
+  int32 optimizations_applied_1m = 8;
+  int32 successful_optimizations = 9;
+  int32 failed_optimizations = 10;
+  double optimization_success_rate = 11;
+
+  // Resource Usage
+  double ai_cpu_usage_percent = 12;
+  int64 ai_memory_bytes = 13;
+}
+
+// ============================================================================
+// Aggregated Metrics for Dashboards
+// ============================================================================
+
+message AggregatedMetrics {
+  google.protobuf.Timestamp timestamp = 1;
+  string aggregation_type = 2;  // "cluster", "channel", "node_type"
+
+  // Cluster-wide metrics
+  ClusterMetrics cluster = 3;
+
+  // Per-channel metrics
+  repeated ChannelMetrics channels = 4;
+
+  // Per-node-type metrics
+  map<string, NodeTypeMetrics> node_types = 5;  // "validator", "business", "slim"
+}
+
+message ClusterMetrics {
+  int32 total_nodes = 1;
+  int32 active_nodes = 2;
+
+  // Aggregated TPS
+  int64 total_tps = 3;
+  int64 avg_tps_per_node = 4;
+
+  // Overall health
+  double cluster_health_score = 5;
+  double avg_cpu_usage = 6;
+  double avg_memory_usage = 7;
+}
+
+message ChannelMetrics {
+  string channel_id = 1;
+  string channel_name = 2;
+
+  int64 tps = 3;
+  int32 active_nodes = 4;
+  double avg_latency_ms = 5;
+  double health_score = 6;
+}
+
+message NodeTypeMetrics {
+  string node_type = 1;  // "validator", "business", "slim"
+  int32 count = 2;
+
+  int64 avg_tps = 3;
+  double avg_latency_ms = 4;
+  double avg_cpu_percent = 5;
+  double avg_memory_percent = 6;
+}
+
+// ============================================================================
+// Time-Series Metrics (for charts)
+// ============================================================================
+
+message TimeSeriesMetrics {
+  string metric_name = 1;  // "tps", "latency", "cpu"
+  repeated TimeSeriesPoint points = 2;
+  string unit = 3;  // "tps", "ms", "percent"
+}
+
+message TimeSeriesPoint {
+  google.protobuf.Timestamp timestamp = 1;
+  double value = 2;
+}
+
+// ============================================================================
+// Metrics Stream Control
+// ============================================================================
+
+message MetricsSubscription {
+  string client_id = 1;
+  string auth_token = 2;
+
+  // Subscription scope
+  repeated string metric_types = 3;  // ["tps", "latency", "consensus", "storage"]
+  repeated string node_ids = 4;      // Empty = all nodes
+  repeated string channels = 5;      // Empty = all channels
+
+  // Update frequency
+  int32 update_interval_ms = 6;  // Minimum: 100ms, Default: 1000ms, Maximum: 60000ms
+
+  // Time series configuration
+  bool include_time_series = 7;
+  int32 time_series_window_minutes = 8;  // Default: 5 minutes
+}
+
+message MetricsSubscriptionResponse {
+  bool success = 1;
+  string subscription_id = 2;
+  string message = 3;
+  google.protobuf.Timestamp started_at = 4;
+
+  // Server capabilities
+  int32 max_update_frequency_ms = 5;
+  repeated string available_metrics = 6;
+}
+
+// ============================================================================
+// gRPC Service Definition
+// ============================================================================
+
+service MetricsStreamService {
+  // Get current metrics snapshot (one-shot)
+  rpc GetCurrentMetrics(MetricsRequest) returns (PerformanceMetricsUpdate);
+
+  // Get aggregated cluster metrics (one-shot)
+  rpc GetAggregatedMetrics(AggregatedMetricsRequest) returns (AggregatedMetrics);
+
+  // Stream real-time metrics updates (server streaming)
+  rpc StreamMetrics(MetricsSubscription) returns (stream PerformanceMetricsUpdate);
+
+  // Stream aggregated metrics (server streaming)
+  rpc StreamAggregatedMetrics(MetricsSubscription) returns (stream AggregatedMetrics);
+
+  // Get historical time-series data (one-shot)
+  rpc GetTimeSeriesMetrics(TimeSeriesRequest) returns (TimeSeriesResponse);
+
+  // Bidirectional streaming for interactive monitoring
+  rpc InteractiveMetrics(stream MetricsCommand) returns (stream PerformanceMetricsUpdate);
+}
+
+message MetricsRequest {
+  repeated string node_ids = 1;
+  repeated string metric_types = 2;
+}
+
+message AggregatedMetricsRequest {
+  string aggregation_type = 1;  // "cluster", "channel", "node_type"
+  repeated string filter_ids = 2;  // Channel IDs or Node Type names
+}
+
+message TimeSeriesRequest {
+  repeated string metric_names = 1;
+  google.protobuf.Timestamp start_time = 2;
+  google.protobuf.Timestamp end_time = 3;
+  int32 granularity_seconds = 4;  // Data point interval
+  repeated string node_ids = 5;
+}
+
+message TimeSeriesResponse {
+  repeated TimeSeriesMetrics series = 1;
+  int32 total_points = 2;
+}
+
+message MetricsCommand {
+  enum CommandType {
+    CHANGE_INTERVAL = 0;
+    ADD_METRIC = 1;
+    REMOVE_METRIC = 2;
+    ADD_NODE_FILTER = 3;
+    REMOVE_NODE_FILTER = 4;
+    PAUSE = 5;
+    RESUME = 6;
+  }
+
+  CommandType command = 1;
+  map<string, string> parameters = 2;
+}

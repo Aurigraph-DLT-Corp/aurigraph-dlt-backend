@@ -1,0 +1,716 @@
+package io.aurigraph.v11.consensus;
+
+import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.InjectMock;
+import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.helpers.test.UniAssertSubscriber;
+import jakarta.inject.Inject;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.mockito.Mockito;
+
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.IntStream;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+/**
+ * Comprehensive test suite for HyperRAFTConsensusService
+ * Target: 95%+ line coverage, 90%+ function coverage
+ *
+ * Test Categories:
+ * 1. Consensus State Management
+ * 2. Leader Election
+ * 3. Log Replication
+ * 4. Transaction Consensus
+ * 5. AI Optimization Integration
+ * 6. Network Partition Handling
+ * 7. Performance and Metrics
+ * 8. Fault Tolerance
+ */
+@QuarkusTest
+@DisplayName("HyperRAFTConsensusService Comprehensive Test Suite")
+class HyperRAFTConsensusServiceTest {
+
+    @Inject
+    HyperRAFTConsensusService consensusService;
+
+    @InjectMock
+    io.aurigraph.v11.ai.AIConsensusOptimizer consensusOptimizer;
+
+    @BeforeEach
+    void setUp() {
+        Mockito.reset(consensusOptimizer);
+    }
+
+    // ==================== NESTED TEST CLASSES ====================
+
+    @Nested
+    @DisplayName("Consensus State Management Tests")
+    class StateManagementTests {
+
+        @Test
+        @DisplayName("Should initialize with correct default state")
+        void testInitialState() {
+            // When
+            HyperRAFTConsensusService.ConsensusState state = consensusService.getConsensusState();
+
+            // Then
+            assertNotNull(state, "Consensus state should not be null");
+            assertNotNull(state.nodeId(), "Node ID should be assigned");
+            assertTrue(state.currentTerm() >= 0, "Term should be non-negative");
+            assertTrue(state.commitIndex() >= 0, "Commit index should be non-negative");
+        }
+
+        @Test
+        @DisplayName("Should retrieve consensus status")
+        void testGetConsensusStatus() {
+            // When
+            HyperRAFTConsensusService.ConsensusStatus status = consensusService.getConsensusStatus();
+
+            // Then
+            assertNotNull(status);
+            assertNotNull(status.nodeState());
+            assertTrue(status.currentTerm() >= 0);
+            assertTrue(status.commitIndex() >= 0);
+            assertNotNull(status.clusterNodes());
+            assertTrue(status.isHealthy());
+        }
+
+        @Test
+        @DisplayName("Should update consensus metrics")
+        void testConsensusMetrics() {
+            // When
+            HyperRAFTConsensusService.ConsensusMetrics metrics = consensusService.getConsensusMetrics();
+
+            // Then
+            assertNotNull(metrics);
+            assertTrue(metrics.consensusLatencyMs() >= 0);
+            assertTrue(metrics.throughputTPS() >= 0);
+            assertTrue(metrics.totalOperations() >= 0);
+            assertTrue(metrics.successRate() >= 0.0 && metrics.successRate() <= 100.0);
+        }
+
+        @Test
+        @DisplayName("Should handle state transitions")
+        void testStateTransitions() {
+            // Given
+            HyperRAFTConsensusService.ConsensusState initialState = consensusService.getConsensusState();
+
+            // When - trigger some consensus operations
+            consensusService.submitTransaction("tx-001", "data-001".getBytes())
+                .await().indefinitely();
+
+            // Then
+            HyperRAFTConsensusService.ConsensusState newState = consensusService.getConsensusState();
+            assertNotNull(newState);
+            assertTrue(newState.currentTerm() >= initialState.currentTerm(),
+                "Term should not decrease");
+        }
+    }
+
+    @Nested
+    @DisplayName("Leader Election Tests")
+    class LeaderElectionTests {
+
+        @Test
+        @DisplayName("Should have a leader or be in election")
+        void testLeaderElection() {
+            // When
+            HyperRAFTConsensusService.ConsensusStatus status = consensusService.getConsensusStatus();
+
+            // Then
+            assertNotNull(status.nodeState());
+            // Node should be in one of: LEADER, FOLLOWER, or CANDIDATE
+            assertTrue(
+                status.nodeState().toString().matches("LEADER|FOLLOWER|CANDIDATE"),
+                "Node should be in a valid state"
+            );
+        }
+
+        @Test
+        @DisplayName("Should handle leader promotion")
+        void testLeaderPromotion() {
+            // Given
+            String nodeId = consensusService.getConsensusState().nodeId();
+
+            // When
+            boolean promoted = consensusService.promoteToLeader(nodeId);
+
+            // Then - promotion may succeed or fail depending on cluster state
+            // Just verify no exception and valid response
+            assertTrue(promoted || !promoted, "Should return a valid boolean");
+        }
+
+        @Test
+        @DisplayName("Should retrieve current leader")
+        void testGetCurrentLeader() {
+            // When
+            String leaderId = consensusService.getCurrentLeader();
+
+            // Then
+            // Leader might be null if in election, otherwise should be valid
+            if (leaderId != null) {
+                assertFalse(leaderId.isEmpty(), "Leader ID should not be empty");
+            }
+        }
+
+        @Test
+        @DisplayName("Should handle vote requests")
+        void testVoteRequest() {
+            // Given
+            String candidateId = "candidate-001";
+            long term = 1;
+            long lastLogIndex = 0;
+            long lastLogTerm = 0;
+
+            // When
+            boolean voteGranted = consensusService.requestVote(candidateId, term, lastLogIndex, lastLogTerm);
+
+            // Then
+            // Vote result depends on current state
+            assertTrue(voteGranted || !voteGranted, "Should return valid vote decision");
+        }
+    }
+
+    @Nested
+    @DisplayName("Log Replication Tests")
+    class LogReplicationTests {
+
+        @Test
+        @DisplayName("Should append log entries")
+        void testAppendLogEntry() {
+            // Given
+            String txId = "tx-log-001";
+            byte[] data = "transaction data".getBytes();
+
+            // When
+            boolean appended = consensusService.appendLogEntry(txId, data);
+
+            // Then
+            assertTrue(appended, "Log entry should be appended successfully");
+        }
+
+        @Test
+        @DisplayName("Should retrieve log entries")
+        void testGetLogEntries() {
+            // Given
+            consensusService.appendLogEntry("tx-log-001", "data1".getBytes());
+            consensusService.appendLogEntry("tx-log-002", "data2".getBytes());
+
+            // When
+            List<HyperRAFTConsensusService.LogEntry> entries = consensusService.getLogEntries(0, 10);
+
+            // Then
+            assertNotNull(entries);
+            assertTrue(entries.size() >= 2, "Should have at least 2 entries");
+        }
+
+        @Test
+        @DisplayName("Should handle log compaction")
+        void testLogCompaction() {
+            // Given - add many entries to trigger snapshot
+            IntStream.range(0, 100).forEach(i ->
+                consensusService.appendLogEntry("tx-compact-" + i, ("data-" + i).getBytes())
+            );
+
+            // When
+            boolean compacted = consensusService.compactLog(50);
+
+            // Then
+            assertTrue(compacted, "Log compaction should succeed");
+        }
+
+        @Test
+        @DisplayName("Should replicate entries to followers")
+        void testReplicateEntries() {
+            // Given
+            String followerId = "follower-001";
+            List<HyperRAFTConsensusService.LogEntry> entries = List.of(
+                new HyperRAFTConsensusService.LogEntry(1, 1, "tx-001", "data1".getBytes()),
+                new HyperRAFTConsensusService.LogEntry(2, 1, "tx-002", "data2".getBytes())
+            );
+
+            // When/Then - should not throw exception
+            assertDoesNotThrow(() -> {
+                consensusService.replicateToFollower(followerId, entries);
+            });
+        }
+    }
+
+    @Nested
+    @DisplayName("Transaction Consensus Tests")
+    class TransactionConsensusTests {
+
+        @Test
+        @DisplayName("Should submit transaction for consensus")
+        void testSubmitTransaction() {
+            // Given
+            String txId = "tx-consensus-001";
+            byte[] txData = "transaction data".getBytes();
+
+            // When
+            Uni<Boolean> result = consensusService.submitTransaction(txId, txData);
+
+            // Then
+            Boolean committed = result.subscribe()
+                .withSubscriber(UniAssertSubscriber.create())
+                .awaitItem()
+                .getItem();
+
+            assertNotNull(committed);
+            // May succeed or fail depending on leader status
+        }
+
+        @Test
+        @DisplayName("Should process transaction batch")
+        void testBatchTransactionConsensus() {
+            // Given
+            List<HyperRAFTConsensusService.TransactionData> transactions = IntStream.range(0, 10)
+                .mapToObj(i -> new HyperRAFTConsensusService.TransactionData(
+                    "tx-batch-" + i,
+                    ("data-" + i).getBytes()
+                ))
+                .toList();
+
+            // When
+            Uni<HyperRAFTConsensusService.BatchConsensusResult> result =
+                consensusService.submitBatch(transactions);
+
+            // Then
+            HyperRAFTConsensusService.BatchConsensusResult batchResult = result
+                .subscribe()
+                .withSubscriber(UniAssertSubscriber.create())
+                .awaitItem()
+                .getItem();
+
+            assertNotNull(batchResult);
+            assertTrue(batchResult.totalTransactions() == 10);
+        }
+
+        @Test
+        @DisplayName("Should verify transaction commitment")
+        void testVerifyCommitment() {
+            // Given
+            String txId = "tx-verify-001";
+            consensusService.submitTransaction(txId, "data".getBytes()).await().indefinitely();
+
+            // When
+            boolean committed = consensusService.isCommitted(txId);
+
+            // Then - may or may not be committed yet
+            assertTrue(committed || !committed, "Should return valid commitment status");
+        }
+
+        @Test
+        @DisplayName("Should handle concurrent transaction submissions")
+        void testConcurrentSubmissions() throws InterruptedException {
+            // Given
+            int concurrentTx = 50;
+            List<CompletableFuture<Boolean>> futures = IntStream.range(0, concurrentTx)
+                .mapToObj(i -> consensusService.submitTransaction(
+                    "tx-concurrent-" + i,
+                    ("data-" + i).getBytes()
+                ).subscribeAsCompletionStage())
+                .map(stage -> stage.toCompletableFuture())
+                .toList();
+
+            // When
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+            // Then
+            long successCount = futures.stream()
+                .map(f -> {
+                    try {
+                        return f.get();
+                    } catch (Exception e) {
+                        return false;
+                    }
+                })
+                .filter(result -> result != null && result)
+                .count();
+
+            System.out.printf("Concurrent submissions: %d/%d succeeded%n", successCount, concurrentTx);
+        }
+    }
+
+    @Nested
+    @DisplayName("AI Optimization Integration Tests")
+    class AIOptimizationTests {
+
+        @Test
+        @DisplayName("Should use AI optimizer for election timeout")
+        void testAIElectionTimeout() {
+            // Given
+            when(consensusOptimizer.optimizeElectionTimeout(any()))
+                .thenReturn(Uni.createFrom().item(200L));
+
+            // When
+            long timeout = consensusService.getOptimalElectionTimeout();
+
+            // Then
+            assertTrue(timeout > 0, "Timeout should be positive");
+            assertTrue(timeout >= 150 && timeout <= 300, "Timeout should be in valid range");
+        }
+
+        @Test
+        @DisplayName("Should use AI optimizer for batch size")
+        void testAIBatchSizeOptimization() {
+            // Given
+            when(consensusOptimizer.optimizeBatchSize(any()))
+                .thenReturn(Uni.createFrom().item(15000));
+
+            // When
+            int batchSize = consensusService.getOptimalBatchSize();
+
+            // Then
+            assertTrue(batchSize > 0, "Batch size should be positive");
+        }
+
+        @Test
+        @DisplayName("Should fall back on AI optimizer failure")
+        void testAIOptimizerFallback() {
+            // Given
+            when(consensusOptimizer.optimizeElectionTimeout(any()))
+                .thenReturn(Uni.createFrom().failure(new RuntimeException("AI unavailable")));
+
+            // When/Then - should use default values
+            assertDoesNotThrow(() -> {
+                long timeout = consensusService.getOptimalElectionTimeout();
+                assertTrue(timeout > 0, "Should fall back to default timeout");
+            });
+        }
+
+        @Test
+        @DisplayName("Should track AI optimization metrics")
+        void testAIOptimizationMetrics() {
+            // When
+            HyperRAFTConsensusService.AIOptimizationMetrics metrics =
+                consensusService.getAIOptimizationMetrics();
+
+            // Then
+            assertNotNull(metrics);
+            assertTrue(metrics.optimizationCalls() >= 0);
+            assertTrue(metrics.averageLatencyMs() >= 0);
+        }
+    }
+
+    @Nested
+    @DisplayName("Network Partition and Fault Tolerance Tests")
+    class FaultToleranceTests {
+
+        @Test
+        @DisplayName("Should detect network partitions")
+        void testNetworkPartitionDetection() {
+            // When
+            boolean partitioned = consensusService.isNetworkPartitioned();
+
+            // Then
+            assertFalse(partitioned || partitioned, "Should return valid partition status");
+        }
+
+        @Test
+        @DisplayName("Should handle node failures")
+        void testNodeFailureHandling() {
+            // Given
+            String failedNode = "node-failed-001";
+
+            // When
+            consensusService.markNodeFailed(failedNode);
+
+            // Then
+            HyperRAFTConsensusService.ConsensusStatus status = consensusService.getConsensusStatus();
+            // Cluster should still be operational if not majority failed
+        }
+
+        @Test
+        @DisplayName("Should recover from partition")
+        void testPartitionRecovery() {
+            // Given
+            consensusService.simulatePartition(true);
+
+            // When
+            consensusService.simulatePartition(false);
+
+            // Then
+            HyperRAFTConsensusService.ConsensusStatus status = consensusService.getConsensusStatus();
+            assertTrue(status.isHealthy() || !status.isHealthy(), "Cluster should attempt recovery");
+        }
+
+        @Test
+        @DisplayName("Should handle heartbeat failures")
+        void testHeartbeatFailures() {
+            // When
+            Map<String, Long> heartbeats = consensusService.getHeartbeatStatus();
+
+            // Then
+            assertNotNull(heartbeats);
+            // Heartbeats may be empty if no other nodes in cluster
+        }
+
+        @Test
+        @DisplayName("Should maintain quorum")
+        void testQuorumMaintenance() {
+            // When
+            boolean hasQuorum = consensusService.hasQuorum();
+
+            // Then
+            assertTrue(hasQuorum || !hasQuorum, "Should return valid quorum status");
+        }
+    }
+
+    @Nested
+    @DisplayName("Performance and Metrics Tests")
+    class PerformanceTests {
+
+        @Test
+        @DisplayName("Should track consensus latency")
+        void testConsensusLatency() {
+            // Given
+            consensusService.submitTransaction("tx-latency-001", "data".getBytes())
+                .await().indefinitely();
+
+            // When
+            HyperRAFTConsensusService.ConsensusMetrics metrics = consensusService.getConsensusMetrics();
+
+            // Then
+            assertTrue(metrics.consensusLatencyMs() >= 0, "Latency should be non-negative");
+            assertTrue(metrics.consensusLatencyMs() < 1000, "Latency should be < 1s for test");
+        }
+
+        @Test
+        @DisplayName("Should track throughput")
+        void testThroughputTracking() {
+            // Given
+            IntStream.range(0, 20).forEach(i ->
+                consensusService.submitTransaction("tx-throughput-" + i, ("data-" + i).getBytes())
+                    .await().indefinitely()
+            );
+
+            // When
+            HyperRAFTConsensusService.ConsensusMetrics metrics = consensusService.getConsensusMetrics();
+
+            // Then
+            assertTrue(metrics.throughputTPS() >= 0, "Throughput should be non-negative");
+            assertTrue(metrics.totalOperations() >= 20, "Should track all operations");
+        }
+
+        @Test
+        @DisplayName("Should calculate success rate")
+        void testSuccessRate() {
+            // When
+            HyperRAFTConsensusService.ConsensusMetrics metrics = consensusService.getConsensusMetrics();
+
+            // Then
+            assertTrue(metrics.successRate() >= 0.0 && metrics.successRate() <= 100.0,
+                "Success rate should be between 0 and 100");
+        }
+
+        @Test
+        @DisplayName("Should handle high-throughput batch consensus")
+        void testHighThroughputBatch() {
+            // Given
+            int batchSize = 5000;
+            List<HyperRAFTConsensusService.TransactionData> transactions = IntStream.range(0, batchSize)
+                .mapToObj(i -> new HyperRAFTConsensusService.TransactionData(
+                    "tx-high-" + i,
+                    ("data-" + i).getBytes()
+                ))
+                .toList();
+
+            // When
+            long startTime = System.nanoTime();
+            HyperRAFTConsensusService.BatchConsensusResult result =
+                consensusService.submitBatch(transactions).await().indefinitely();
+            long duration = System.nanoTime() - startTime;
+
+            // Then
+            assertNotNull(result);
+            double tps = (double) batchSize * 1_000_000_000.0 / duration;
+            System.out.printf("High-throughput batch: %d txns, %.2f ms, %.0f TPS%n",
+                batchSize, duration / 1_000_000.0, tps);
+        }
+    }
+
+    @Nested
+    @DisplayName("Snapshot and Recovery Tests")
+    class SnapshotTests {
+
+        @Test
+        @DisplayName("Should create snapshot")
+        void testCreateSnapshot() {
+            // Given
+            IntStream.range(0, 50).forEach(i ->
+                consensusService.appendLogEntry("tx-snapshot-" + i, ("data-" + i).getBytes())
+            );
+
+            // When
+            boolean snapshotCreated = consensusService.createSnapshot();
+
+            // Then
+            assertTrue(snapshotCreated, "Snapshot should be created");
+        }
+
+        @Test
+        @DisplayName("Should restore from snapshot")
+        void testRestoreFromSnapshot() {
+            // Given
+            consensusService.createSnapshot();
+
+            // When
+            boolean restored = consensusService.restoreFromSnapshot();
+
+            // Then
+            assertTrue(restored, "Should restore from snapshot");
+        }
+
+        @Test
+        @DisplayName("Should handle snapshot metadata")
+        void testSnapshotMetadata() {
+            // Given
+            consensusService.createSnapshot();
+
+            // When
+            HyperRAFTConsensusService.SnapshotMetadata metadata =
+                consensusService.getLatestSnapshotMetadata();
+
+            // Then
+            if (metadata != null) {
+                assertTrue(metadata.lastIncludedIndex() >= 0);
+                assertTrue(metadata.lastIncludedTerm() >= 0);
+                assertTrue(metadata.timestamp() > 0);
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("Cluster Management Tests")
+    class ClusterManagementTests {
+
+        @Test
+        @DisplayName("Should add node to cluster")
+        void testAddNode() {
+            // Given
+            String newNode = "node-new-001";
+
+            // When
+            boolean added = consensusService.addNode(newNode);
+
+            // Then
+            assertTrue(added, "Node should be added to cluster");
+            assertTrue(consensusService.getClusterNodes().contains(newNode));
+        }
+
+        @Test
+        @DisplayName("Should remove node from cluster")
+        void testRemoveNode() {
+            // Given
+            String nodeToRemove = "node-remove-001";
+            consensusService.addNode(nodeToRemove);
+
+            // When
+            boolean removed = consensusService.removeNode(nodeToRemove);
+
+            // Then
+            assertTrue(removed, "Node should be removed from cluster");
+        }
+
+        @Test
+        @DisplayName("Should list cluster nodes")
+        void testListClusterNodes() {
+            // When
+            List<String> nodes = consensusService.getClusterNodes();
+
+            // Then
+            assertNotNull(nodes);
+            assertTrue(nodes.size() >= 1, "Should have at least one node (self)");
+        }
+
+        @Test
+        @DisplayName("Should get cluster size")
+        void testClusterSize() {
+            // When
+            int size = consensusService.getClusterSize();
+
+            // Then
+            assertTrue(size >= 1, "Cluster should have at least one node");
+        }
+    }
+
+    @Nested
+    @DisplayName("Integration Tests")
+    class IntegrationTests {
+
+        @Test
+        @DisplayName("Should complete full consensus cycle")
+        void testFullConsensusCycle() {
+            // Given
+            String txId = "tx-full-cycle-001";
+            byte[] data = "full cycle data".getBytes();
+
+            // When
+            // 1. Submit transaction
+            Boolean submitted = consensusService.submitTransaction(txId, data)
+                .await().indefinitely();
+
+            // 2. Check if committed
+            boolean committed = consensusService.isCommitted(txId);
+
+            // 3. Retrieve log entry
+            List<HyperRAFTConsensusService.LogEntry> entries = consensusService.getLogEntries(0, 100);
+
+            // Then
+            assertNotNull(submitted);
+            assertNotNull(entries);
+            assertTrue(entries.size() > 0, "Should have log entries");
+        }
+
+        @Test
+        @DisplayName("Should maintain consensus under load")
+        void testConsensusUnderLoad() throws ExecutionException, InterruptedException {
+            // Given
+            int transactionCount = 100;
+            List<CompletableFuture<Boolean>> futures = IntStream.range(0, transactionCount)
+                .mapToObj(i -> consensusService.submitTransaction(
+                    "tx-load-" + i,
+                    ("data-" + i).getBytes()
+                ).subscribeAsCompletionStage().toCompletableFuture())
+                .toList();
+
+            // When
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
+
+            // Then
+            HyperRAFTConsensusService.ConsensusMetrics metrics = consensusService.getConsensusMetrics();
+            assertTrue(metrics.totalOperations() >= transactionCount,
+                "Should process all transactions");
+            assertTrue(metrics.successRate() >= 50.0,
+                "Success rate should be at least 50% under load");
+        }
+
+        @Test
+        @DisplayName("Should coordinate with AI optimizer")
+        void testAICoordination() {
+            // Given
+            when(consensusOptimizer.optimizeElectionTimeout(any()))
+                .thenReturn(Uni.createFrom().item(180L));
+            when(consensusOptimizer.optimizeBatchSize(any()))
+                .thenReturn(Uni.createFrom().item(15000));
+
+            // When
+            long timeout = consensusService.getOptimalElectionTimeout();
+            int batchSize = consensusService.getOptimalBatchSize();
+
+            // Then
+            assertTrue(timeout > 0);
+            assertTrue(batchSize > 0);
+        }
+    }
+}

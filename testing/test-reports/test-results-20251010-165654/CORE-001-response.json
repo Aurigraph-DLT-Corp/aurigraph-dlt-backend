@@ -1,0 +1,32 @@
+{
+    "status": "UP",
+    "checks": [
+        {
+            "name": "Aurigraph V11 is running",
+            "status": "UP"
+        },
+        {
+            "name": "alive",
+            "status": "UP"
+        },
+        {
+            "name": "gRPC Server",
+            "status": "UP",
+            "data": {
+                "grpc.health.v1.Health": true,
+                "io.aurigraph.v11.AurigraphV11Service": true
+            }
+        },
+        {
+            "name": "Redis connection health check",
+            "status": "UP"
+        },
+        {
+            "name": "Database connections health check",
+            "status": "UP",
+            "data": {
+                "<default>": "UP"
+            }
+        }
+    ]
+}

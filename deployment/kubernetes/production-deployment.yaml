@@ -1,0 +1,267 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aurigraph-production
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aurigraph-v11
+  namespace: aurigraph-production
+  labels:
+    app: aurigraph-v11
+    version: "11.0.0"
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: aurigraph-v11
+  template:
+    metadata:
+      labels:
+        app: aurigraph-v11
+        version: "11.0.0"
+    spec:
+      containers:
+      - name: aurigraph
+        image: aurigraph/v11:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 9003
+          name: http
+        - containerPort: 9004
+          name: grpc
+        env:
+        - name: QUARKUS_PROFILE
+          value: "prod"
+        - name: CONSENSUS_TARGET_TPS
+          value: "2000000"
+        - name: CONSENSUS_BATCH_SIZE
+          value: "100000"
+        - name: CONSENSUS_PARALLEL_THREADS
+          value: "256"
+        - name: AI_OPTIMIZATION_ENABLED
+          value: "true"
+        - name: QUANTUM_CRYPTO_ENABLED
+          value: "true"
+        - name: BRIDGE_VALIDATORS
+          value: "21"
+        - name: HMS_ENABLED
+          value: "true"
+        - name: CBDC_ENABLED
+          value: "true"
+        resources:
+          requests:
+            memory: "16Gi"
+            cpu: "8"
+          limits:
+            memory: "32Gi"
+            cpu: "16"
+        livenessProbe:
+          httpGet:
+            path: /q/health/live
+            port: 9003
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /q/health/ready
+            port: 9003
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+        - name: data
+          mountPath: /app/data
+      volumes:
+      - name: config
+        configMap:
+          name: aurigraph-config
+      - name: data
+        persistentVolumeClaim:
+          claimName: aurigraph-data-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aurigraph-service
+  namespace: aurigraph-production
+  labels:
+    app: aurigraph-v11
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 9003
+    name: http
+  - port: 9004
+    targetPort: 9004
+    name: grpc
+  selector:
+    app: aurigraph-v11
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aurigraph-config
+  namespace: aurigraph-production
+data:
+  application.properties: |
+    # Aurigraph V11 Production Configuration
+    quarkus.http.port=9003
+    quarkus.grpc.server.port=9004
+    
+    # Performance Settings
+    consensus.target.tps=2000000
+    consensus.batch.size=100000
+    consensus.parallel.threads=256
+    consensus.validator.count=21
+    
+    # AI Optimization
+    ai.optimization.enabled=true
+    ai.optimization.target.tps=3000000
+    ai.model.update.interval=3600
+    
+    # Quantum Cryptography
+    quantum.crypto.enabled=true
+    quantum.crypto.level=5
+    quantum.crypto.algorithm=CRYSTALS-Dilithium
+    
+    # Cross-Chain Bridge
+    bridge.enabled=true
+    bridge.validators=21
+    bridge.chains=ethereum,polygon,bsc,avalanche,solana
+    
+    # HMS Integration
+    hms.enabled=true
+    hms.compliance.hipaa=true
+    hms.encryption.homomorphic=true
+    
+    # CBDC Framework
+    cbdc.enabled=true
+    cbdc.compliance.kyc=true
+    cbdc.compliance.aml=true
+    cbdc.settlement.realtime=true
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aurigraph-data-pvc
+  namespace: aurigraph-production
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: fast-ssd
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: aurigraph-hpa
+  namespace: aurigraph-production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: aurigraph-v11
+  minReplicas: 5
+  maxReplicas: 50
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  - type: Pods
+    pods:
+      metric:
+        name: transactions_per_second
+      target:
+        type: AverageValue
+        averageValue: "100000"
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aurigraph-ingress
+  namespace: aurigraph-production
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/grpc-backend: "true"
+spec:
+  tls:
+  - hosts:
+    - api.aurigraph.io
+    secretName: aurigraph-tls
+  rules:
+  - host: api.aurigraph.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: aurigraph-service
+            port:
+              number: 80
+      - path: /grpc
+        pathType: Prefix
+        backend:
+          service:
+            name: aurigraph-service
+            port:
+              number: 9004
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: aurigraph-serviceaccount
+  namespace: aurigraph-production
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: aurigraph-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: aurigraph-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: aurigraph-role
+subjects:
+- kind: ServiceAccount
+  name: aurigraph-serviceaccount
+  namespace: aurigraph-production

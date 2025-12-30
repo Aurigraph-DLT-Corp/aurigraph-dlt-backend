@@ -1,0 +1,79 @@
+################################################################################
+# Dockerfile.business-dev - Business Node Development Build
+# Purpose: Transaction processing, smart contract execution, API serving
+# Resources: 4-8 CPU cores, 1-2GB RAM (development)
+# Build Type: Development - Debug symbols, verbose logging
+################################################################################
+
+FROM ghcr.io/graalvm/native-image-community:21-muslib AS build
+
+WORKDIR /build
+COPY .mvn/ .mvn/
+COPY mvnw pom.xml ./
+RUN ./mvnw dependency:go-offline -B
+
+COPY src/ src/
+RUN ./mvnw clean package \
+    -Pnative \
+    -DskipTests=false \
+    -Dquarkus.native.container-build=false \
+    -Dquarkus.native.native-image-xmx=3g \
+    -Dquarkus.native.debug-symbols=true
+
+################################################################################
+# Runtime Stage - Development
+################################################################################
+
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3
+
+RUN microdnf install -y \
+    supervisor \
+    util-linux \
+    procps-ng \
+    libstdc++ \
+    zlib \
+    curl \
+    git \
+    && microdnf clean all
+
+WORKDIR /app
+
+COPY --from=build --chown=1001:root /build/target/*-runner /app/aurigraph-v11
+COPY --chown=1001:root scripts/multi-node-launcher.sh /app/
+COPY --chown=1001:root config/supervisord-business.conf /etc/supervisord.conf
+
+RUN mkdir -p /app/logs /app/data /app/pids /app/config /app/contracts && \
+    chmod +x /app/multi-node-launcher.sh /app/aurigraph-v11
+
+# Development environment
+ENV NODE_TYPE=BUSINESS \
+    CONSENSUS_ROLE=PARTICIPANT \
+    BLOCK_PRODUCTION=DISABLED \
+    TRANSACTION_PROCESSING=ENABLED \
+    SMART_CONTRACTS=ENABLED \
+    PUBLIC_API=ENABLED \
+    BUILD_TYPE=development \
+    QUARKUS_LOG_LEVEL=DEBUG \
+    MIN_CPU=4 \
+    MIN_MEMORY=1G \
+    AURIGRAPH_NODE_COUNT=2
+
+ENV AURIGRAPH_THREAD_POOL_SIZE=32 \
+    AURIGRAPH_BATCH_SIZE=5000 \
+    AURIGRAPH_MEMORY_MODE=standard \
+    AURIGRAPH_DEBUG_MODE=enabled
+
+EXPOSE 9013-9015 9014 9015 8080-8081
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8080/q/health/ready || exit 1
+
+ENTRYPOINT ["/app/multi-node-launcher.sh"]
+
+LABEL role="business" \
+      type="transaction-node" \
+      build-type="development" \
+      min-cpu="4" \
+      min-memory="1GB" \
+      max-nodes="5" \
+      version="11.0.0-dev"

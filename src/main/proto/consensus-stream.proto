@@ -1,0 +1,384 @@
+syntax = "proto3";
+
+package io.aurigraph.v11.proto;
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+import "consensus.proto";
+import "blockchain.proto";
+import "core_types.proto";
+
+option java_multiple_files = true;
+option java_package = "io.aurigraph.v11.proto";
+option java_outer_classname = "ConsensusStreamProto";
+
+/**
+ * Consensus Stream Protocol Buffer Definitions
+ *
+ * Replaces WebSocket consensus monitoring streams with gRPC-Web bidirectional streaming.
+ * Provides real-time streaming of HyperRAFT++ consensus events and state changes.
+ *
+ * Key Benefits over WebSocket+JSON:
+ * - 60-70% bandwidth reduction (Protobuf vs JSON)
+ * - Type-safe client generation (TypeScript + Java)
+ * - Built-in flow control and backpressure
+ * - HTTP/2 multiplexing (multiple streams, one connection)
+ */
+
+// ============================================================================
+// Consensus State Streaming
+// ============================================================================
+
+message ConsensusStateUpdate {
+  google.protobuf.Timestamp timestamp = 1;
+  ConsensusState current_state = 2;
+  ConsensusMetrics metrics = 3;
+
+  // State Change Information
+  ConsensusStateChange state_change = 4;
+  string change_reason = 5;
+}
+
+message ConsensusStateChange {
+  enum ChangeType {
+    ROLE_CHANGE = 0;
+    PHASE_CHANGE = 1;
+    LEADER_CHANGE = 2;
+    TERM_CHANGE = 3;
+    VALIDATOR_CHANGE = 4;
+  }
+
+  ChangeType change_type = 1;
+  string old_value = 2;
+  string new_value = 3;
+  google.protobuf.Timestamp occurred_at = 4;
+}
+
+// ============================================================================
+// Leader Election Streaming
+// ============================================================================
+
+message LeaderElectionEvent {
+  enum ElectionPhase {
+    INITIATED = 0;
+    VOTING = 1;
+    DECIDED = 2;
+    FAILED = 3;
+  }
+
+  string election_id = 1;
+  int64 election_term = 2;
+  ElectionPhase phase = 3;
+  string candidate_id = 4;
+
+  // Voting Progress
+  int32 votes_received = 5;
+  int32 votes_required = 6;
+  repeated ElectionVote votes = 7;
+
+  // Timing
+  google.protobuf.Timestamp started_at = 8;
+  google.protobuf.Timestamp ended_at = 9;
+  int64 duration_ms = 10;
+
+  // Result
+  string elected_leader_id = 11;
+  bool election_successful = 12;
+  string failure_reason = 13;
+}
+
+// ============================================================================
+// Block Proposal & Voting Streaming
+// ============================================================================
+
+message BlockProposalEvent {
+  enum ProposalStatus {
+    PROPOSED = 0;
+    VOTING_IN_PROGRESS = 1;
+    ACCEPTED = 2;
+    REJECTED = 3;
+    TIMEOUT = 4;
+  }
+
+  string proposal_id = 1;
+  BlockProposal proposal = 2;
+  ProposalStatus status = 3;
+
+  // Voting Progress
+  int32 votes_for = 4;
+  int32 votes_against = 5;
+  int32 votes_pending = 6;
+  repeated Vote recent_votes = 7;
+
+  // Timing
+  google.protobuf.Timestamp proposed_at = 8;
+  int64 proposal_duration_ms = 9;
+  int32 timeout_seconds = 10;
+}
+
+message VotingUpdate {
+  string block_hash = 1;
+  Vote vote = 2;
+
+  // Progress
+  int32 total_votes = 3;
+  int32 votes_required = 4;
+  double vote_percentage = 5;
+
+  // Consensus Check
+  bool consensus_reached = 6;
+  bool consensus_failed = 7;
+
+  google.protobuf.Timestamp timestamp = 8;
+}
+
+// ============================================================================
+// Commitment & Finalization Streaming
+// ============================================================================
+
+message CommitmentEvent {
+  enum CommitmentPhase {
+    INITIATED = 0;
+    SIGNATURES_COLLECTED = 1;
+    COMMITTED = 2;
+    FINALIZED = 3;
+    FAILED = 4;
+  }
+
+  string block_hash = 1;
+  Block block = 2;
+  CommitmentPhase phase = 3;
+
+  // Progress
+  int32 signatures_collected = 4;
+  int32 signatures_required = 5;
+  repeated string validator_signatures = 6;
+
+  // Timing
+  google.protobuf.Timestamp commit_started = 7;
+  google.protobuf.Timestamp commit_completed = 8;
+  int64 commit_duration_ms = 9;
+
+  // Result
+  bool commit_successful = 10;
+  int64 finalized_height = 11;
+  string failure_reason = 12;
+}
+
+// ============================================================================
+// Heartbeat Streaming
+// ============================================================================
+
+message HeartbeatStream {
+  string leader_id = 1;
+  int64 current_term = 2;
+  int64 heartbeat_sequence = 3;
+
+  // Follower Responses
+  repeated HeartbeatResponse follower_responses = 4;
+  int32 responsive_followers = 5;
+  int32 total_followers = 6;
+
+  // Health Metrics
+  double average_response_time_ms = 7;
+  int32 missed_heartbeats = 8;
+  repeated string unresponsive_nodes = 9;
+
+  google.protobuf.Timestamp timestamp = 10;
+}
+
+// ============================================================================
+// Validator Activity Streaming
+// ============================================================================
+
+message ValidatorActivityUpdate {
+  enum ActivityType {
+    JOINED = 0;
+    LEFT = 1;
+    BECAME_ACTIVE = 2;
+    BECAME_INACTIVE = 3;
+    ROLE_CHANGED = 4;
+    REPUTATION_CHANGED = 5;
+  }
+
+  string validator_id = 1;
+  ActivityType activity_type = 2;
+  ValidatorInfo validator_info = 3;
+
+  // Activity Details
+  string old_role = 4;
+  string new_role = 5;
+  double old_reputation = 6;
+  double new_reputation = 7;
+  string reason = 8;
+
+  google.protobuf.Timestamp timestamp = 9;
+}
+
+message ValidatorSetUpdate {
+  int32 total_validators = 1;
+  int32 active_validators = 2;
+  int32 inactive_validators = 3;
+
+  repeated ValidatorInfo validator_list = 4;
+  repeated string recent_additions = 5;
+  repeated string recent_removals = 6;
+
+  google.protobuf.Timestamp timestamp = 7;
+}
+
+// ============================================================================
+// Performance & Health Streaming
+// ============================================================================
+
+message ConsensusPerformanceUpdate {
+  // Throughput
+  double current_blocks_per_second = 1;
+  double average_block_time_ms = 2;
+  int64 blocks_committed_last_minute = 3;
+
+  // Latency
+  double consensus_latency_ms = 4;
+  double proposal_to_commit_latency_ms = 5;
+  double vote_collection_latency_ms = 6;
+
+  // Success Rates
+  double consensus_success_rate = 7;
+  double vote_success_rate = 8;
+  int32 failed_proposals_last_hour = 9;
+
+  // Network Health
+  double network_health_percent = 10;
+  int32 byzantine_faults_detected = 11;
+
+  google.protobuf.Timestamp timestamp = 12;
+}
+
+// ============================================================================
+// Stream Control Messages
+// ============================================================================
+
+message ConsensusSubscribeRequest {
+  string client_id = 1;
+  string session_token = 2;
+
+  // Subscription Configuration
+  repeated string event_types = 3;  // ["state_changes", "leader_election", "proposals", "commitments", "heartbeats", "validators", "performance"]
+  int32 update_interval_ms = 4;     // Minimum interval between updates (default: 500ms)
+
+  // Filtering
+  repeated string filter_validator_ids = 5;
+  bool include_historical = 6;
+  int32 historical_minutes = 7;     // Include last N minutes of history
+
+  // Performance Options
+  int32 buffer_size = 8;            // Client-side buffer (default: 50)
+  bool compress_updates = 9;        // Enable compression for large updates
+}
+
+message ConsensusSubscribeResponse {
+  bool success = 1;
+  string message = 2;
+  string subscription_id = 3;
+  google.protobuf.Timestamp started_at = 4;
+  ConsensusState initial_state = 5;
+}
+
+message ConsensusUnsubscribeRequest {
+  string subscription_id = 1;
+  string client_id = 2;
+}
+
+message ConsensusUnsubscribeResponse {
+  bool success = 1;
+  string message = 2;
+  int64 total_events_delivered = 3;
+  google.protobuf.Timestamp ended_at = 4;
+}
+
+// ============================================================================
+// Real-Time Consensus Events (Union Type)
+// ============================================================================
+
+message ConsensusEventStream {
+  google.protobuf.Timestamp timestamp = 1;
+  string event_id = 2;
+
+  oneof event_data {
+    ConsensusStateUpdate state_update = 3;
+    LeaderElectionEvent leader_election = 4;
+    BlockProposalEvent block_proposal = 5;
+    VotingUpdate voting_update = 6;
+    CommitmentEvent commitment = 7;
+    HeartbeatStream heartbeat = 8;
+    ValidatorActivityUpdate validator_activity = 9;
+    ValidatorSetUpdate validator_set = 10;
+    ConsensusPerformanceUpdate performance = 11;
+  }
+}
+
+// ============================================================================
+// Interactive Commands
+// ============================================================================
+
+message ConsensusCommand {
+  enum CommandType {
+    CHANGE_UPDATE_INTERVAL = 0;
+    ADD_FILTER = 1;
+    REMOVE_FILTER = 2;
+    TOGGLE_EVENT_TYPE = 3;
+    PAUSE = 4;
+    RESUME = 5;
+    REQUEST_SNAPSHOT = 6;
+  }
+
+  CommandType command = 1;
+  map<string, string> parameters = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+// ============================================================================
+// Historical Queries
+// ============================================================================
+
+message ConsensusHistoricalQuery {
+  google.protobuf.Timestamp start_time = 1;
+  google.protobuf.Timestamp end_time = 2;
+  repeated string event_types = 3;
+  int32 limit = 4;
+  int32 offset = 5;
+}
+
+message ConsensusHistoricalResponse {
+  repeated ConsensusEventStream events = 1;
+  int32 total_events = 2;
+  bool has_more = 3;
+  google.protobuf.Timestamp query_executed_at = 4;
+}
+
+// ============================================================================
+// gRPC Service Definition
+// ============================================================================
+
+service ConsensusStreamService {
+  // Get current consensus state (one-shot)
+  rpc GetCurrentState(ConsensusSubscribeRequest) returns (ConsensusStateUpdate);
+
+  // Subscribe to real-time consensus events (server streaming)
+  rpc StreamConsensusEvents(ConsensusSubscribeRequest) returns (stream ConsensusEventStream);
+
+  // Subscribe to specific event types (server streaming)
+  rpc StreamLeaderElections(ConsensusSubscribeRequest) returns (stream LeaderElectionEvent);
+  rpc StreamBlockProposals(ConsensusSubscribeRequest) returns (stream BlockProposalEvent);
+  rpc StreamCommitments(ConsensusSubscribeRequest) returns (stream CommitmentEvent);
+  rpc StreamValidatorActivity(ConsensusSubscribeRequest) returns (stream ValidatorActivityUpdate);
+
+  // Bidirectional streaming for interactive monitoring
+  rpc InteractiveConsensusMonitor(stream ConsensusCommand) returns (stream ConsensusEventStream);
+
+  // Historical consensus data query
+  rpc QueryHistoricalEvents(ConsensusHistoricalQuery) returns (ConsensusHistoricalResponse);
+
+  // Unsubscribe from streaming
+  rpc Unsubscribe(ConsensusUnsubscribeRequest) returns (ConsensusUnsubscribeResponse);
+}

@@ -1,0 +1,146 @@
+syntax = "proto3";
+
+package io.aurigraph.v11.grpc;
+
+option java_multiple_files = true;
+option java_package = "io.aurigraph.v11.grpc.consensus";
+option java_outer_classname = "ConsensusServiceProto";
+
+// Consensus Service - HyperRAFT++ implementation
+service ConsensusService {
+  // Leader election - Request vote
+  rpc RequestVote(VoteRequest) returns (VoteResponse);
+
+  // Log replication - Append entries
+  rpc AppendEntries(AppendEntriesRequest) returns (AppendEntriesResponse);
+
+  // Install snapshot for fast recovery
+  rpc InstallSnapshot(SnapshotRequest) returns (SnapshotResponse);
+
+  // Get current consensus state
+  rpc GetConsensusState(StateRequest) returns (ConsensusState);
+
+  // Stream consensus events
+  rpc StreamConsensusEvents(EventStreamRequest) returns (stream ConsensusEvent);
+
+  // Propose new block
+  rpc ProposeBlock(BlockProposal) returns (ProposalResponse);
+}
+
+message VoteRequest {
+  int64 term = 1;
+  string candidate_id = 2;
+  int64 last_log_index = 3;
+  int64 last_log_term = 4;
+}
+
+message VoteResponse {
+  int64 term = 1;
+  bool vote_granted = 2;
+  string voter_id = 3;
+}
+
+message AppendEntriesRequest {
+  int64 term = 1;
+  string leader_id = 2;
+  int64 prev_log_index = 3;
+  int64 prev_log_term = 4;
+  repeated LogEntry entries = 5;
+  int64 leader_commit = 6;
+  bool batch_append = 7;
+}
+
+message AppendEntriesResponse {
+  int64 term = 1;
+  bool success = 2;
+  int64 match_index = 3;
+  string follower_id = 4;
+}
+
+message LogEntry {
+  int64 index = 1;
+  int64 term = 2;
+  bytes command = 3;
+  string command_type = 4;
+  int64 timestamp = 5;
+}
+
+message SnapshotRequest {
+  int64 term = 1;
+  string leader_id = 2;
+  int64 last_included_index = 3;
+  int64 last_included_term = 4;
+  bytes snapshot_data = 5;
+  int64 offset = 6;
+  bool done = 7;
+}
+
+message SnapshotResponse {
+  int64 term = 1;
+  bool success = 2;
+}
+
+message StateRequest {
+  string node_id = 1;
+}
+
+message ConsensusState {
+  string node_id = 1;
+  NodeRole role = 2;
+  int64 current_term = 3;
+  string voted_for = 4;
+  int64 commit_index = 5;
+  int64 last_applied = 6;
+  string current_leader = 7;
+  int64 log_size = 8;
+  repeated PeerState peers = 9;
+}
+
+message PeerState {
+  string peer_id = 1;
+  int64 next_index = 2;
+  int64 match_index = 3;
+  bool is_online = 4;
+}
+
+message EventStreamRequest {
+  repeated EventType event_types = 1;
+}
+
+message ConsensusEvent {
+  EventType event_type = 1;
+  string node_id = 2;
+  int64 term = 3;
+  int64 timestamp = 4;
+  bytes event_data = 5;
+}
+
+message BlockProposal {
+  int64 block_number = 1;
+  string proposer_id = 2;
+  bytes block_data = 3;
+  repeated string transaction_ids = 4;
+  int64 timestamp = 5;
+}
+
+message ProposalResponse {
+  bool accepted = 1;
+  int64 block_number = 2;
+  string message = 3;
+}
+
+enum NodeRole {
+  FOLLOWER = 0;
+  CANDIDATE = 1;
+  LEADER = 2;
+}
+
+enum EventType {
+  LEADER_ELECTED = 0;
+  TERM_CHANGED = 1;
+  LOG_APPENDED = 2;
+  SNAPSHOT_INSTALLED = 3;
+  COMMIT_ADVANCED = 4;
+  PEER_ADDED = 5;
+  PEER_REMOVED = 6;
+}

@@ -1,0 +1,140 @@
+[
+  {
+    "name": "java.lang.String",
+    "methods": [
+      {"name": "<init>", "parameterTypes": ["char[]"]}
+    ]
+  },
+  {
+    "name": "java.lang.Thread",
+    "methods": [
+      {"name": "currentThread", "parameterTypes": []},
+      {"name": "interrupted", "parameterTypes": []}
+    ]
+  },
+  {
+    "name": "java.lang.System",
+    "methods": [
+      {"name": "nanoTime", "parameterTypes": []},
+      {"name": "currentTimeMillis", "parameterTypes": []}
+    ]
+  },
+  {
+    "name": "java.security.SecureRandom",
+    "methods": [
+      {"name": "<init>", "parameterTypes": []},
+      {"name": "nextBytes", "parameterTypes": ["byte[]"]}
+    ]
+  },
+  {
+    "name": "sun.security.provider.NativePRNG",
+    "methods": [
+      {"name": "<init>", "parameterTypes": []}
+    ]
+  },
+  {
+    "name": "io.netty.channel.epoll.Native",
+    "methods": [
+      {"name": "epollCreate", "parameterTypes": []},
+      {"name": "epollWait", "parameterTypes": ["int", "long", "int", "int"]}
+    ]
+  },
+  {
+    "name": "io.netty.channel.unix.Socket",
+    "methods": [
+      {"name": "socket", "parameterTypes": ["int"]},
+      {"name": "bind", "parameterTypes": ["int", "byte[]", "int", "int"]},
+      {"name": "listen", "parameterTypes": ["int", "int"]}
+    ]
+  },
+  {
+    "name": "io.grpc.netty.shaded.io.netty.channel.epoll.Native",
+    "methods": [
+      {"name": "epollCreate", "parameterTypes": []},
+      {"name": "epollWait", "parameterTypes": ["int", "long", "int", "int"]}
+    ]
+  },
+  {
+    "name": "io.grpc.netty.shaded.io.netty.channel.unix.Socket",
+    "methods": [
+      {"name": "socket", "parameterTypes": ["int"]},
+      {"name": "bind", "parameterTypes": ["int", "byte[]", "int", "int"]},
+      {"name": "listen", "parameterTypes": ["int", "int"]}
+    ]
+  },
+  {
+    "name": "org.bouncycastle.crypto.engines.AESEngine",
+    "methods": [
+      {"name": "<init>", "parameterTypes": []},
+      {"name": "init", "parameterTypes": ["boolean", "org.bouncycastle.crypto.CipherParameters"]}
+    ]
+  },
+  {
+    "name": "org.bouncycastle.crypto.digests.SHA3Digest",
+    "methods": [
+      {"name": "<init>", "parameterTypes": ["int"]},
+      {"name": "doFinal", "parameterTypes": ["byte[]", "int"]}
+    ]
+  },
+  {
+    "name": "org.bouncycastle.pqc.crypto.crystals.kyber.KyberEngine",
+    "methods": [
+      {"name": "generateKyberKeys", "parameterTypes": ["java.security.SecureRandom"]},
+      {"name": "kyberEncrypt", "parameterTypes": ["byte[]", "org.bouncycastle.pqc.crypto.crystals.kyber.KyberPublicKeyParameters", "java.security.SecureRandom"]},
+      {"name": "kyberDecrypt", "parameterTypes": ["byte[]", "org.bouncycastle.pqc.crypto.crystals.kyber.KyberPrivateKeyParameters"]}
+    ]
+  },
+  {
+    "name": "org.bouncycastle.pqc.crypto.crystals.dilithium.DilithiumEngine",
+    "methods": [
+      {"name": "generateKeyPair", "parameterTypes": ["java.security.SecureRandom"]},
+      {"name": "signInternal", "parameterTypes": ["byte[]", "int", "org.bouncycastle.pqc.crypto.crystals.dilithium.DilithiumPrivateKeyParameters"]},
+      {"name": "verifyInternal", "parameterTypes": ["byte[]", "int", "byte[]", "int", "org.bouncycastle.pqc.crypto.crystals.dilithium.DilithiumPublicKeyParameters"]}
+    ]
+  },
+  {
+    "name": "org.bouncycastle.pqc.crypto.sphincsplus.SPHINCSPlusEngine",
+    "methods": [
+      {"name": "generateKeyPair", "parameterTypes": ["java.security.SecureRandom"]},
+      {"name": "sign", "parameterTypes": ["org.bouncycastle.pqc.crypto.sphincsplus.SPHINCSPlusPrivateKeyParameters", "byte[]"]},
+      {"name": "verify", "parameterTypes": ["org.bouncycastle.pqc.crypto.sphincsplus.SPHINCSPlusPublicKeyParameters", "byte[]", "byte[]"]}
+    ]
+  },
+  {
+    "name": "java.util.concurrent.locks.AbstractQueuedSynchronizer",
+    "methods": [
+      {"name": "compareAndSetState", "parameterTypes": ["int", "int"]},
+      {"name": "getState", "parameterTypes": []}
+    ]
+  },
+  {
+    "name": "java.util.concurrent.atomic.AtomicLong",
+    "methods": [
+      {"name": "compareAndSet", "parameterTypes": ["long", "long"]},
+      {"name": "getAndIncrement", "parameterTypes": []}
+    ]
+  },
+  {
+    "name": "java.util.concurrent.atomic.AtomicReference",
+    "methods": [
+      {"name": "compareAndSet", "parameterTypes": ["java.lang.Object", "java.lang.Object"]},
+      {"name": "get", "parameterTypes": []}
+    ]
+  },
+  {
+    "name": "sun.misc.Unsafe",
+    "methods": [
+      {"name": "compareAndSwapLong", "parameterTypes": ["java.lang.Object", "long", "long", "long"]},
+      {"name": "compareAndSwapObject", "parameterTypes": ["java.lang.Object", "long", "java.lang.Object", "java.lang.Object"]},
+      {"name": "getLongVolatile", "parameterTypes": ["java.lang.Object", "long"]},
+      {"name": "putLongVolatile", "parameterTypes": ["java.lang.Object", "long", "long"]}
+    ]
+  },
+  {
+    "name": "java.nio.DirectByteBuffer",
+    "methods": [
+      {"name": "<init>", "parameterTypes": ["long", "int"]},
+      {"name": "cleaner", "parameterTypes": []}
+    ]
+  }
+]

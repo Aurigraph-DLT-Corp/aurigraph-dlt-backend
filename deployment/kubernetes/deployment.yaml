@@ -1,0 +1,272 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aurigraph-v11-native
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: dlt-platform
+    version: "11.0.0"
+    deployment-type: native
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: aurigraph-v11
+      deployment-type: native
+  template:
+    metadata:
+      labels:
+        app: aurigraph-v11
+        component: dlt-platform
+        version: "11.0.0"
+        deployment-type: native
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9003"
+        prometheus.io/path: "/q/metrics"
+    spec:
+      # Security Context for native binary
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      
+      # Node Selection for Performance
+      nodeSelector:
+        node-type: high-performance
+        kubernetes.io/arch: amd64
+      
+      # Tolerations for dedicated nodes
+      tolerations:
+      - key: "aurigraph.io/dedicated"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      
+      # Affinity for optimal distribution
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - aurigraph-v11
+              topologyKey: kubernetes.io/hostname
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node.kubernetes.io/instance-type
+                operator: In
+                values:
+                - c5.xlarge
+                - c5.2xlarge
+                - c5.4xlarge
+      
+      containers:
+      - name: aurigraph-v11
+        image: aurigraph/v11-native:latest
+        imagePullPolicy: Always
+        
+        # Optimized resource allocation for native binary
+        resources:
+          requests:
+            memory: "128Mi"      # Native binary requires less memory
+            cpu: "100m"          # Fast startup allows lower CPU request
+            ephemeral-storage: "1Gi"
+          limits:
+            memory: "512Mi"      # Maximum memory limit
+            cpu: "2000m"         # High CPU limit for 2M+ TPS
+            ephemeral-storage: "2Gi"
+        
+        # Health checks optimized for fast native startup
+        livenessProbe:
+          httpGet:
+            path: /q/health/live
+            port: 9003
+            scheme: HTTP
+          initialDelaySeconds: 5    # Fast startup allows quick health checks
+          periodSeconds: 10
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /q/health/ready
+            port: 9003
+            scheme: HTTP
+          initialDelaySeconds: 2    # Native binary is ready very fast
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        
+        # Startup probe for initial readiness
+        startupProbe:
+          httpGet:
+            path: /q/health/started
+            port: 9003
+            scheme: HTTP
+          initialDelaySeconds: 1    # Native binary starts in <1s
+          periodSeconds: 1
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 10
+        
+        # Ports
+        ports:
+        - name: http
+          containerPort: 9003
+          protocol: TCP
+        - name: grpc
+          containerPort: 9004
+          protocol: TCP
+        - name: metrics
+          containerPort: 9003
+          protocol: TCP
+        
+        # Environment variables for optimal performance
+        env:
+        - name: QUARKUS_PROFILE
+          value: "prod"
+        - name: QUARKUS_HTTP_HOST
+          value: "0.0.0.0"
+        - name: QUARKUS_GRPC_SERVER_HOST
+          value: "0.0.0.0"
+        - name: AURIGRAPH_NATIVE_MODE
+          value: "true"
+        - name: AURIGRAPH_K8S_DEPLOYMENT
+          value: "true"
+        - name: CONSENSUS_NODE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: CONSENSUS_CLUSTER_SIZE
+          value: "3"
+        - name: AI_OPTIMIZATION_ENABLED
+          value: "true"
+        - name: AI_OPTIMIZATION_TARGET_TPS
+          value: "2500000"
+        - name: MALLOC_ARENA_MAX
+          value: "1"
+        - name: MALLOC_MMAP_THRESHOLD_
+          value: "32768"
+        
+        # Configuration from ConfigMap and Secrets
+        envFrom:
+        - configMapRef:
+            name: aurigraph-v11-config
+        - secretRef:
+            name: aurigraph-v11-secrets
+            optional: true
+        
+        # Volume mounts for configuration and data
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+          readOnly: true
+        - name: data-volume
+          mountPath: /app/data
+        - name: tmp-volume
+          mountPath: /tmp
+        
+        # Security context for container
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1001
+          capabilities:
+            drop:
+            - ALL
+      
+      # Volumes
+      volumes:
+      - name: config-volume
+        configMap:
+          name: aurigraph-v11-config
+          defaultMode: 0644
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: aurigraph-v11-data
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: "1Gi"
+      
+      # DNS Configuration
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "2"
+        - name: edns0
+      
+      # Termination settings
+      terminationGracePeriodSeconds: 30
+      
+      # Image pull secrets if using private registry
+      imagePullSecrets:
+      - name: aurigraph-registry-secret
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aurigraph-v11-service
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: dlt-platform
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+spec:
+  type: LoadBalancer
+  sessionAffinity: ClientIP
+  ports:
+  - name: http
+    port: 9003
+    targetPort: 9003
+    protocol: TCP
+  - name: grpc
+    port: 9004
+    targetPort: 9004
+    protocol: TCP
+  selector:
+    app: aurigraph-v11
+    deployment-type: native
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aurigraph-v11-headless
+  namespace: aurigraph-system
+  labels:
+    app: aurigraph-v11
+    component: dlt-platform
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+  - name: http
+    port: 9003
+    targetPort: 9003
+  - name: grpc
+    port: 9004
+    targetPort: 9004
+  selector:
+    app: aurigraph-v11
+    deployment-type: native

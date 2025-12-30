@@ -1,0 +1,118 @@
+####
+# Aurigraph V11 Optimized Native Dockerfile
+# 
+# This multi-stage Dockerfile creates a native image optimized for:
+# - <1 second startup time
+# - <100MB binary size
+# - 2M+ TPS performance
+# - Minimal runtime dependencies
+#
+# Build with:
+# docker build -f src/main/docker/Dockerfile.native-optimized -t aurigraph/v11-native:latest .
+#
+# Run with:
+# docker run -p 9003:9003 -p 9004:9004 aurigraph/v11-native:latest
+####
+
+# Stage 1: Build Stage with GraalVM and Maven
+FROM quay.io/quarkus/ubi-quarkus-mandrel:24-java21 AS build
+
+# Set build environment variables for maximum performance
+ENV MAVEN_OPTS="-Xmx8g -XX:+UseG1GC -XX:MaxGCPauseMillis=100"
+ENV GRAALVM_HOME="/opt/mandrel"
+ENV JAVA_HOME="/opt/mandrel"
+ENV PATH="$GRAALVM_HOME/bin:$PATH"
+
+# Install additional build tools
+USER root
+RUN microdnf update -y && \
+    microdnf install -y gcc glibc-devel zlib-devel libstdc++-static && \
+    microdnf clean all
+
+# Set working directory
+WORKDIR /build
+
+# Copy Maven wrapper and POM first for better layer caching
+COPY --chown=quarkus:quarkus mvnw mvnw.cmd pom.xml ./
+COPY --chown=quarkus:quarkus .mvn/ .mvn/
+
+# Switch to quarkus user for security
+USER quarkus
+
+# Download dependencies first (better caching)
+RUN ./mvnw dependency:resolve dependency:resolve-sources
+
+# Copy source code
+COPY --chown=quarkus:quarkus src/ src/
+
+# Build native executable with ultra-optimized settings
+RUN ./mvnw package -Pnative-ultra \
+    -Dquarkus.native.container-build=false \
+    -Dquarkus.native.builder-image="" \
+    -Dquarkus.native.native-image-xmx=8g \
+    -Dquarkus.package.compress=true \
+    -Dmaven.test.skip=true \
+    --no-transfer-progress \
+    -B
+
+# Verify the binary is optimized
+RUN ls -la target/ && \
+    file target/*-runner && \
+    ldd target/*-runner || echo "Static binary (good!)"
+
+# Stage 2: Minimal Runtime with Distroless
+FROM gcr.io/distroless/base-debian12:nonroot
+
+# Create necessary directories
+WORKDIR /app
+
+# Copy the native binary
+COPY --from=build --chown=nonroot:nonroot /build/target/*-runner ./aurigraph-v11
+
+# Copy configuration files
+COPY --from=build --chown=nonroot:nonroot /build/src/main/resources/application*.properties ./config/
+
+# Set optimal runtime environment variables
+ENV MALLOC_ARENA_MAX=1
+ENV MALLOC_MMAP_THRESHOLD_=32768
+ENV MALLOC_TRIM_THRESHOLD_=32768
+ENV MALLOC_MMAP_MAX_=8192
+
+# Performance tuning environment variables
+ENV AURIGRAPH_NATIVE_MODE=true
+ENV AURIGRAPH_OPTIMIZE_FOR_THROUGHPUT=true
+ENV AURIGRAPH_MAX_DIRECT_MEMORY=256m
+ENV AURIGRAPH_GC_THREADS=2
+
+# Health check endpoint
+HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=3 \
+    CMD ["/app/aurigraph-v11", "--health-check"]
+
+# Expose ports
+EXPOSE 9003 9004
+
+# Set resource limits for optimal performance
+LABEL io.kubernetes.container.memory.request="128Mi"
+LABEL io.kubernetes.container.memory.limit="512Mi"
+LABEL io.kubernetes.container.cpu.request="100m"
+LABEL io.kubernetes.container.cpu.limit="2000m"
+
+# Security labels
+LABEL org.opencontainers.image.title="Aurigraph V11 Native"
+LABEL org.opencontainers.image.description="Ultra-optimized native Aurigraph DLT V11 for 2M+ TPS"
+LABEL org.opencontainers.image.version="11.0.0"
+LABEL org.opencontainers.image.vendor="Aurigraph DLT Corp"
+
+# Use non-root user for security
+USER nonroot:nonroot
+
+# Optimized entrypoint with performance flags
+ENTRYPOINT ["/app/aurigraph-v11", \
+    "-Dquarkus.http.host=0.0.0.0", \
+    "-Dquarkus.grpc.server.host=0.0.0.0", \
+    "-Djava.security.egd=file:/dev/./urandom", \
+    "-Dfile.encoding=UTF-8", \
+    "-Dsun.nio.useCanonicalPrefixCache=false", \
+    "-Djava.awt.headless=true", \
+    "-XX:TieredStopAtLevel=1", \
+    "-XX:+UseStringDeduplication"]

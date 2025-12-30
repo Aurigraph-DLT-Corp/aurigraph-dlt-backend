@@ -1,0 +1,87 @@
+################################################################################
+# Dockerfile.business-prod - Business Node Production Build
+# Purpose: High-performance transaction processing, smart contracts, API serving
+# Resources: 16-32 CPU cores, 4-8GB RAM
+# Build Type: Production - Ultra-optimized for transaction throughput
+################################################################################
+
+FROM ghcr.io/graalvm/native-image-community:21-muslib AS build
+
+WORKDIR /build
+COPY .mvn/ .mvn/
+COPY mvnw pom.xml ./
+RUN ./mvnw dependency:go-offline -B
+
+COPY src/ src/
+# Production build with ultra-optimizations (no symbols, aggressive inlining)
+RUN ./mvnw clean package -Pnative-ultra \
+    -DskipTests \
+    -Dquarkus.native.container-build=false \
+    -Dquarkus.native.native-image-xmx=7g \
+    -Dquarkus.native.strip-symbols=true
+
+################################################################################
+# Runtime Stage - Production
+################################################################################
+
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3
+
+RUN microdnf install -y \
+    supervisor \
+    util-linux \
+    procps-ng \
+    libstdc++ \
+    zlib \
+    curl \
+    && microdnf clean all
+
+WORKDIR /app
+
+COPY --from=build --chown=1001:root /build/target/*-runner /app/aurigraph-v11
+COPY --chown=1001:root scripts/multi-node-launcher.sh /app/
+COPY --chown=1001:root config/supervisord-business.conf /etc/supervisord.conf
+
+RUN mkdir -p /app/logs /app/data /app/pids /app/config /app/contracts && \
+    chmod +x /app/multi-node-launcher.sh /app/aurigraph-v11
+
+# Production environment with maximum performance
+ENV NODE_TYPE=BUSINESS \
+    CONSENSUS_ROLE=PARTICIPANT \
+    BLOCK_PRODUCTION=DISABLED \
+    TRANSACTION_PROCESSING=ENABLED \
+    SMART_CONTRACTS=ENABLED \
+    PUBLIC_API=ENABLED \
+    BUILD_TYPE=production \
+    QUARKUS_LOG_LEVEL=WARN \
+    MIN_CPU=16 \
+    MIN_MEMORY=4G \
+    AURIGRAPH_NODE_COUNT=10
+
+# Production performance settings (ultra-optimized)
+ENV AURIGRAPH_THREAD_POOL_SIZE=256 \
+    AURIGRAPH_BATCH_SIZE=50000 \
+    AURIGRAPH_MEMORY_MODE=optimized \
+    AURIGRAPH_ENABLE_INLINE_CACHING=true \
+    AURIGRAPH_JIT_COMPILATION=enabled \
+    SMART_CONTRACT_PRELOAD=true \
+    SMART_CONTRACT_CACHE=enabled
+
+# Expose business ports (10 nodes × 2 ports)
+EXPOSE 9013-9022 9023-9032 8080-8089
+
+# Health check with strict timeout for production
+HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:8080/q/health/ready || exit 1
+
+ENTRYPOINT ["/app/multi-node-launcher.sh"]
+
+LABEL role="business" \
+      type="transaction-node" \
+      build-type="production" \
+      min-cpu="16" \
+      min-memory="4GB" \
+      max-nodes="10" \
+      version="11.0.0" \
+      optimization-level="ultra" \
+      features="SmartContracts,RWATokenization,PublicAPI"
+

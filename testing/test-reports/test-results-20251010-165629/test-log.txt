@@ -1,0 +1,13 @@
+Starting Individual API Tests...
+================================
+
+==================================================
+CATEGORY 1: CORE INFRASTRUCTURE TESTS
+==================================================
+==================================================
+TEST CORE-001: Health Check Endpoint
+==================================================
+Description: Verify application health status and all subsystem checks
+Method: GET
+Endpoint: /q/health
+Expected Status: 200

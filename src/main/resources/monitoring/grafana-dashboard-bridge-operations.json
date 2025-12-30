@@ -1,0 +1,580 @@
+{
+  "dashboard": {
+    "title": "Aurigraph V11 - Bridge Operations",
+    "tags": ["aurigraph", "v11", "bridge", "cross-chain"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "10s",
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "type": "stat",
+        "title": "Bridge Status",
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "aurigraph_bridge_status",
+            "legendFormat": "Status"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "none",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {
+                "value": 1,
+                "text": "OPERATIONAL",
+                "color": "green"
+              },
+              {
+                "value": 0,
+                "text": "DOWN",
+                "color": "red"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": 2,
+        "type": "stat",
+        "title": "Pending Cross-Chain Transactions",
+        "gridPos": {
+          "x": 6,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "aurigraph_bridge_pending_transactions",
+            "legendFormat": "Pending"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "value": 0,
+                  "color": "green"
+                },
+                {
+                  "value": 100,
+                  "color": "yellow"
+                },
+                {
+                  "value": 1000,
+                  "color": "red"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "type": "stat",
+        "title": "Oldest Pending Transaction Age",
+        "gridPos": {
+          "x": 12,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "time() - aurigraph_bridge_transaction_oldest_pending_timestamp",
+            "legendFormat": "Age"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "none",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "value": 0,
+                  "color": "green"
+                },
+                {
+                  "value": 1800,
+                  "color": "yellow"
+                },
+                {
+                  "value": 3600,
+                  "color": "red"
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "type": "stat",
+        "title": "Total Value Locked (TVL)",
+        "gridPos": {
+          "x": 18,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "sum(aurigraph_bridge_tvl_usd)",
+            "legendFormat": "TVL"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyUSD",
+            "decimals": 2
+          }
+        }
+      },
+      {
+        "id": 5,
+        "type": "graph",
+        "title": "Cross-Chain Transactions Per Second",
+        "gridPos": {
+          "x": 0,
+          "y": 4,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "rate(aurigraph_bridge_transactions_total[5m])",
+            "legendFormat": "{{chain}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ops",
+            "label": "TPS"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "type": "graph",
+        "title": "Bridge Transaction Success Rate",
+        "gridPos": {
+          "x": 12,
+          "y": 4,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "(rate(aurigraph_bridge_transactions_completed_total[5m]) / rate(aurigraph_bridge_transactions_total[5m])) * 100",
+            "legendFormat": "{{chain}} Success %"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "percent",
+            "label": "Success %",
+            "min": 0,
+            "max": 100
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "type": "graph",
+        "title": "Bridge Transaction Latency by Chain",
+        "gridPos": {
+          "x": 0,
+          "y": 12,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(aurigraph_bridge_transaction_duration_seconds_bucket[5m]))",
+            "legendFormat": "{{chain}} P50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(aurigraph_bridge_transaction_duration_seconds_bucket[5m]))",
+            "legendFormat": "{{chain}} P95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(aurigraph_bridge_transaction_duration_seconds_bucket[5m]))",
+            "legendFormat": "{{chain}} P99"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "s",
+            "label": "Duration"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "type": "graph",
+        "title": "Asset Lock/Unlock Events",
+        "gridPos": {
+          "x": 12,
+          "y": 12,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "rate(aurigraph_bridge_assets_locked_total[5m])",
+            "legendFormat": "Locked"
+          },
+          {
+            "expr": "rate(aurigraph_bridge_assets_unlocked_total[5m])",
+            "legendFormat": "Unlocked"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ops",
+            "label": "Events/sec"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "type": "graph",
+        "title": "Bridge Validator Signatures",
+        "gridPos": {
+          "x": 0,
+          "y": 20,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "rate(aurigraph_bridge_validator_signatures_total[5m])",
+            "legendFormat": "{{validator}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ops",
+            "label": "Signatures/sec"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "type": "graph",
+        "title": "Multi-Sig Threshold Status",
+        "gridPos": {
+          "x": 12,
+          "y": 20,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "aurigraph_bridge_multisig_threshold",
+            "legendFormat": "Required Signatures"
+          },
+          {
+            "expr": "aurigraph_bridge_multisig_active_validators",
+            "legendFormat": "Active Validators"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "short",
+            "label": "Count"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "type": "graph",
+        "title": "Failed Bridge Transactions",
+        "gridPos": {
+          "x": 0,
+          "y": 28,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "rate(aurigraph_bridge_transactions_failed_total[5m])",
+            "legendFormat": "{{chain}} - {{reason}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ops",
+            "label": "Failures/sec"
+          }
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": {
+                "params": [0.1],
+                "type": "gt"
+              },
+              "operator": {
+                "type": "and"
+              },
+              "query": {
+                "params": ["A", "5m", "now"]
+              },
+              "reducer": {
+                "params": [],
+                "type": "avg"
+              },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "1m",
+          "handler": 1,
+          "name": "High Bridge Transaction Failure Rate",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 12,
+        "type": "graph",
+        "title": "Fraud Detection Events",
+        "gridPos": {
+          "x": 12,
+          "y": 28,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "rate(aurigraph_bridge_fraud_detected_total[5m])",
+            "legendFormat": "{{type}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "ops",
+            "label": "Events/sec"
+          }
+        ]
+      },
+      {
+        "id": 13,
+        "type": "table",
+        "title": "Bridge Volume by Chain (24h)",
+        "gridPos": {
+          "x": 0,
+          "y": 36,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "sum by (chain, direction) (increase(aurigraph_bridge_volume_usd[24h]))",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true
+              },
+              "indexByName": {
+                "chain": 0,
+                "direction": 1,
+                "Value": 2
+              },
+              "renameByName": {
+                "chain": "Chain",
+                "direction": "Direction",
+                "Value": "Volume (USD)"
+              }
+            }
+          }
+        ],
+        "fieldConfig": {
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Volume (USD)"
+              },
+              "properties": [
+                {
+                  "id": "unit",
+                  "value": "currencyUSD"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 14,
+        "type": "table",
+        "title": "Active Bridge Validators",
+        "gridPos": {
+          "x": 12,
+          "y": 36,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "aurigraph_bridge_validator_status",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true,
+                "__name__": true
+              },
+              "indexByName": {
+                "validator_id": 0,
+                "chain": 1,
+                "stake": 2,
+                "Value": 3
+              },
+              "renameByName": {
+                "validator_id": "Validator",
+                "chain": "Chain",
+                "stake": "Stake",
+                "Value": "Status"
+              }
+            }
+          }
+        ],
+        "fieldConfig": {
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Status"
+              },
+              "properties": [
+                {
+                  "id": "mappings",
+                  "value": [
+                    {
+                      "value": 1,
+                      "text": "ACTIVE",
+                      "color": "green"
+                    },
+                    {
+                      "value": 0,
+                      "text": "INACTIVE",
+                      "color": "red"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 15,
+        "type": "graph",
+        "title": "TVL by Chain",
+        "gridPos": {
+          "x": 0,
+          "y": 44,
+          "w": 24,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "aurigraph_bridge_tvl_usd",
+            "legendFormat": "{{chain}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "currencyUSD",
+            "label": "Total Value Locked"
+          }
+        ]
+      },
+      {
+        "id": 16,
+        "type": "graph",
+        "title": "Gas Fees by Chain",
+        "gridPos": {
+          "x": 0,
+          "y": 52,
+          "w": 24,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "avg by (chain) (aurigraph_bridge_gas_price_gwei)",
+            "legendFormat": "{{chain}}"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "short",
+            "label": "Gas Price (Gwei)"
+          }
+        ]
+      }
+    ]
+  },
+  "overwrite": true
+}

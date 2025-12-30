@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+package io.aurigraph.v11.proto;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "io.aurigraph.v11.proto";
+option java_outer_classname = "CommonProto";
+
+// Status enumerations
+enum TransactionStatus {
+  TRANSACTION_UNKNOWN = 0;
+  TRANSACTION_PENDING = 1;
+  TRANSACTION_CONFIRMED = 2;
+  TRANSACTION_FAILED = 3;
+  TRANSACTION_REJECTED = 4;
+  TRANSACTION_QUEUED = 5;
+}
+
+enum BlockStatus {
+  BLOCK_UNKNOWN = 0;
+  BLOCK_PROPOSED = 1;
+  BLOCK_COMMITTED = 2;
+  BLOCK_FINALIZED = 3;
+  BLOCK_ORPHANED = 4;
+}
+
+enum HealthStatus {
+  HEALTH_UNKNOWN = 0;
+  HEALTH_SERVING = 1;
+  HEALTH_NOT_SERVING = 2;
+  HEALTH_UNKNOWN_SERVICE = 3;
+}
+
+enum NodeStatus {
+  NODE_UNKNOWN = 0;
+  NODE_ACTIVE = 1;
+  NODE_INACTIVE = 2;
+  NODE_SYNCING = 3;
+  NODE_ERROR = 4;
+}
+
+enum PerformanceGrade {
+  GRADE_UNKNOWN = 0;
+  GRADE_NEEDS_OPTIMIZATION = 1;
+  GRADE_GOOD = 2;
+  GRADE_VERY_GOOD = 3;
+  GRADE_OUTSTANDING = 4;
+  GRADE_EXCELLENT = 5;
+}
+
+// Generic request/response wrapper
+message Response {
+  bool success = 1;
+  string message = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  map<string, string> metadata = 4;
+}
+
+// Error handling
+message ErrorResponse {
+  string error_code = 1;
+  string error_message = 2;
+  string error_details = 3;
+  google.protobuf.Timestamp timestamp = 4;
+}
+
+// Generic event for streaming
+message Event {
+  string event_type = 1;
+  string event_id = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  map<string, string> data = 4;
+}
+
+// System metrics
+message SystemMetrics {
+  double cpu_usage_percent = 1;
+  int64 memory_used_bytes = 2;
+  int64 memory_total_bytes = 3;
+  int32 active_threads = 4;
+  double jvm_heap_usage_percent = 5;
+  int64 gc_count = 6;
+  double gc_time_percent = 7;
+}
+
+// Node information
+message NodeInfo {
+  string node_id = 1;
+  string node_type = 2;
+  string version = 3;
+  string network = 4;
+  repeated string capabilities = 5;
+  google.protobuf.Timestamp started_at = 6;
+}

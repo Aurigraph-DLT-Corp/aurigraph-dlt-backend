@@ -1,0 +1,82 @@
+################################################################################
+# Dockerfile.slim - Slim Node Container
+# Purpose: Lightweight read operations, data queries, analytics
+# Resources: 4-8 CPU cores, 1-2GB RAM, 20GB SSD
+################################################################################
+
+FROM ghcr.io/graalvm/native-image-community:21-muslib AS build
+
+WORKDIR /build
+COPY .mvn/ .mvn/
+COPY mvnw pom.xml ./
+RUN ./mvnw dependency:go-offline -B
+
+COPY src/ src/
+RUN ./mvnw clean package -Pnative-ultra \
+    -DskipTests \
+    -Dquarkus.native.container-build=false \
+    -Dquarkus.native.native-image-xmx=8g
+
+################################################################################
+# Runtime Stage
+################################################################################
+
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3
+
+# Install minimal runtime dependencies
+RUN microdnf install -y \
+    supervisor \
+    util-linux \
+    procps-ng \
+    libstdc++ \
+    && microdnf clean all
+
+WORKDIR /app
+
+# Copy native executable
+COPY --from=build --chown=1001:root /build/target/*-runner /app/aurigraph-v11
+
+# Copy multi-node launcher
+COPY --chown=1001:root scripts/multi-node-launcher.sh /app/
+COPY --chown=1001:root config/supervisord-slim.conf /etc/supervisord.conf
+
+# Create minimal directories
+RUN mkdir -p /app/logs /app/data/headers /app/pids && \
+    chmod +x /app/multi-node-launcher.sh /app/aurigraph-v11
+
+# Slim node-specific environment (read-only)
+ENV NODE_TYPE=SLIM \
+    CONSENSUS_ROLE=NONE \
+    BLOCK_PRODUCTION=DISABLED \
+    STATE_STORAGE=MINIMAL \
+    TRANSACTION_PROCESSING=DISABLED \
+    PUBLIC_API=ENABLED \
+    SMART_CONTRACTS=DISABLED \
+    RWA_TOKENIZATION=DISABLED \
+    READ_ONLY=true \
+    MIN_CPU=4 \
+    MIN_MEMORY=1G \
+    AURIGRAPH_NODE_COUNT=6
+
+# Minimal resource mode
+ENV AURIGRAPH_THREAD_POOL_SIZE=64 \
+    AURIGRAPH_BATCH_SIZE=10000 \
+    AURIGRAPH_MEMORY_MODE=minimal
+
+# Expose slim node ports (6 nodes × 2 ports: Query API, Public API)
+EXPOSE 9023-9073 8090-8095
+
+# Health check for first slim node
+HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:9023/q/health/ready || exit 1
+
+# Use multi-node launcher
+ENTRYPOINT ["/app/multi-node-launcher.sh"]
+
+# Labels
+LABEL role="slim" \
+      type="query-node" \
+      min-cpu="4" \
+      min-memory="1GB" \
+      max-nodes="12" \
+      version="11.0.0"

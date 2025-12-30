@@ -1,0 +1,599 @@
+# Aurigraph V11 Complete Production Deployment Suite
+# Includes all necessary Kubernetes resources for high-availability 2M+ TPS deployment
+
+---
+# Namespace for Aurigraph V11 Production System
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aurigraph-production
+  labels:
+    name: aurigraph-production
+    app: aurigraph-v11
+    tier: production
+    security.istio.io/tlsMode: istio
+  annotations:
+    scheduler.alpha.kubernetes.io/node-selector: "node-type=high-performance"
+    linkerd.io/inject: enabled
+
+---
+# Production ConfigMap with Environment-Specific Settings
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aurigraph-v11-production-config
+  namespace: aurigraph-production
+  labels:
+    app: aurigraph-v11
+    component: configuration
+    environment: production
+data:
+  application-production.properties: |
+    # Aurigraph V11 Ultra-High Performance Production Configuration
+    quarkus.application.name=aurigraph-v11-production
+    quarkus.application.version=11.0.0
+    
+    # Production HTTP Configuration - Optimized for 2M+ TPS
+    quarkus.http.port=9003
+    quarkus.http.host=0.0.0.0
+    quarkus.http.http2=true
+    quarkus.http.limits.max-concurrent-streams=50000
+    quarkus.http.limits.max-frame-size=33554432
+    quarkus.http.limits.initial-window-size=4194304
+    quarkus.http.limits.max-header-size=131072
+    quarkus.http.so-reuse-port=true
+    quarkus.http.tcp-quick-ack=true
+    quarkus.http.tcp-cork=true
+    quarkus.http.tcp-fast-open=true
+    quarkus.http.tcp-no-delay=true
+    quarkus.http.accept-backlog=8192
+    quarkus.http.idle-timeout=PT60S
+    
+    # Ultra-High Performance gRPC Configuration
+    quarkus.grpc.server.port=9004
+    quarkus.grpc.server.host=0.0.0.0
+    quarkus.grpc.server.use-separate-server=true
+    quarkus.grpc.server.enable-reflection-service=false
+    quarkus.grpc.server.keep-alive-time=30
+    quarkus.grpc.server.keep-alive-timeout=5
+    quarkus.grpc.server.permit-keep-alive-time=5
+    quarkus.grpc.server.permit-keep-alive-without-calls=true
+    quarkus.grpc.server.max-inbound-message-size=67108864
+    quarkus.grpc.server.max-inbound-metadata-size=131072
+    quarkus.grpc.server.max-concurrent-calls-per-connection=10000
+    
+    # Enhanced Logging for Production
+    quarkus.log.level=INFO
+    quarkus.log.console.enable=true
+    quarkus.log.console.json=true
+    quarkus.log.console.format=%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p [%c{3.}] (%t) [%X{traceId},%X{spanId}] %s%e%n
+    quarkus.log.file.enable=true
+    quarkus.log.file.path=/app/logs/aurigraph-v11.log
+    quarkus.log.file.rotation.max-file-size=100MB
+    quarkus.log.file.rotation.max-backup-index=10
+    
+    # Production Health and Metrics
+    quarkus.smallrye-health.root-path=/q/health
+    quarkus.micrometer.enabled=true
+    quarkus.micrometer.export.prometheus.enabled=true
+    quarkus.micrometer.export.prometheus.path=/q/metrics
+    quarkus.micrometer.binder.jvm=false
+    quarkus.micrometer.binder.system=true
+    quarkus.micrometer.binder.http-server.enabled=true
+    
+    # Virtual Threads - Maximum Concurrency
+    quarkus.virtual-threads.enabled=true
+    quarkus.virtual-threads.name-pattern=aurigraph-prod-vt-#
+    
+    # Production HyperRAFT++ Consensus - Ultra-Optimized
+    consensus.batch.size=100000
+    consensus.pipeline.depth=128
+    consensus.parallel.threads=2048
+    consensus.target.tps=5000000
+    consensus.election.timeout.ms=250
+    consensus.heartbeat.interval.ms=25
+    consensus.leader.lease.duration.ms=3000
+    consensus.log.compaction.enabled=true
+    consensus.log.compaction.interval.ms=180000
+    consensus.pre-vote.enabled=true
+    consensus.joint-consensus.enabled=true
+    
+    # AI Optimization - Production Tuned
+    ai.optimization.enabled=true
+    ai.optimization.target.tps=3500000
+    ai.optimization.learning.rate=0.00005
+    ai.optimization.model.update.interval.ms=3000
+    ai.optimization.prediction.window.ms=1000
+    ai.optimization.anomaly.threshold=0.99
+    ai.optimization.min.confidence=0.95
+    ai.optimization.model.threads=64
+    
+    # Quantum Cryptography Production Settings
+    crypto.quantum.enabled=true
+    crypto.quantum.algorithm=CRYSTALS_KYBER_1024
+    crypto.quantum.signature=CRYSTALS_DILITHIUM_5
+    crypto.quantum.cache.size=10000
+    crypto.quantum.parallel.ops=512
+    
+    # Performance Optimization
+    performance.memory.mapped.logs=true
+    performance.zero.copy.enabled=true
+    performance.async.io.enabled=true
+    performance.thread.affinity.enabled=true
+    performance.numa.aware=true
+    
+  prometheus.yml: |
+    global:
+      scrape_interval: 10s
+      evaluation_interval: 10s
+      external_labels:
+        cluster: 'aurigraph-production'
+        replica: '1'
+    
+    rule_files:
+      - "/etc/prometheus/rules/*.yml"
+    
+    scrape_configs:
+      - job_name: 'aurigraph-v11-production'
+        kubernetes_sd_configs:
+        - role: endpoints
+          namespaces:
+            names:
+            - aurigraph-production
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_service_name]
+          action: keep
+          regex: aurigraph-v11-.*
+        - source_labels: [__meta_kubernetes_endpoint_port_name]
+          action: keep
+          regex: metrics
+        scrape_interval: 5s
+        scrape_timeout: 4s
+        metrics_path: '/q/metrics'
+        
+      - job_name: 'aurigraph-v11-health'
+        kubernetes_sd_configs:
+        - role: endpoints
+          namespaces:
+            names:
+            - aurigraph-production
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_service_name]
+          action: keep
+          regex: aurigraph-v11-.*
+        - source_labels: [__meta_kubernetes_endpoint_port_name]
+          action: keep
+          regex: http
+        scrape_interval: 30s
+        scrape_timeout: 10s
+        metrics_path: '/q/health'
+
+---
+# Production Secrets for Sensitive Configuration
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aurigraph-v11-production-secrets
+  namespace: aurigraph-production
+  labels:
+    app: aurigraph-v11
+    component: security
+    environment: production
+type: Opaque
+data:
+  # Base64 encoded secrets (replace with actual values in production)
+  database-password: YXVyaWdyYXBoLXByb2QtcGFzcw==
+  jwt-secret: YXVyaWdyYXBoLWp3dC1zZWNyZXQtcHJvZC1rZXk=
+  encryption-key: YXVyaWdyYXBoLWVuY3J5cHRpb24ta2V5LXByb2Q=
+  quantum-crypto-seed: cXVhbnR1bS1jcnlwdG8tc2VlZC1wcm9k
+  api-key: YXVyaWdyYXBoLWFwaS1rZXktcHJvZA==
+  tls-cert: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t
+  tls-key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t
+
+---
+# Persistent Volume Claim for Production Data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aurigraph-v11-production-data
+  namespace: aurigraph-production
+  labels:
+    app: aurigraph-v11
+    component: storage
+    environment: production
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Ti
+  storageClassName: fast-ssd
+  volumeMode: Filesystem
+
+---
+# Production Deployment with Ultra-High Performance Configuration
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aurigraph-v11-production
+  namespace: aurigraph-production
+  labels:
+    app: aurigraph-v11
+    component: dlt-platform
+    version: "11.0.0"
+    deployment-type: production-native
+    tier: production
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+    aurigraph.io/target-tps: "2000000"
+spec:
+  replicas: 5  # Start with 5 replicas for production
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: aurigraph-v11
+      deployment-type: production-native
+  template:
+    metadata:
+      labels:
+        app: aurigraph-v11
+        component: dlt-platform
+        version: "11.0.0"
+        deployment-type: production-native
+        tier: production
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9003"
+        prometheus.io/path: "/q/metrics"
+        linkerd.io/inject: enabled
+        sidecar.istio.io/inject: "true"
+    spec:
+      # Enhanced Security Context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      
+      # Production Node Selection and Resource Optimization
+      nodeSelector:
+        node-type: ultra-high-performance
+        kubernetes.io/arch: amd64
+        topology.kubernetes.io/zone: us-west-2a
+      
+      # Tolerations for Dedicated High-Performance Nodes
+      tolerations:
+      - key: "aurigraph.io/dedicated"
+        operator: "Equal"
+        value: "production"
+        effect: "NoSchedule"
+      - key: "node-type"
+        operator: "Equal"
+        value: "ultra-high-performance"
+        effect: "NoSchedule"
+      
+      # Advanced Affinity for Optimal Distribution
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - aurigraph-v11
+            topologyKey: kubernetes.io/hostname
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - aurigraph-v11
+              topologyKey: topology.kubernetes.io/zone
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node.kubernetes.io/instance-type
+                operator: In
+                values:
+                - c6i.4xlarge
+                - c6i.8xlarge
+                - c6i.12xlarge
+                - c6i.16xlarge
+              - key: node.kubernetes.io/cpu-manager-policy
+                operator: In
+                values:
+                - static
+      
+      # Priority Class for Production Workloads
+      priorityClassName: production-high
+      
+      # Service Account with Appropriate RBAC
+      serviceAccountName: aurigraph-v11-production
+      automountServiceAccountToken: true
+      
+      containers:
+      - name: aurigraph-v11-production
+        image: aurigraph/v11-native-ultra:latest
+        imagePullPolicy: Always
+        
+        # Ultra-Optimized Resource Allocation for 2M+ TPS
+        resources:
+          requests:
+            memory: "256Mi"      # Higher request for production stability
+            cpu: "500m"          # Higher CPU request for guaranteed performance
+            ephemeral-storage: "2Gi"
+            hugepages-2Mi: "256Mi"
+          limits:
+            memory: "2Gi"        # Higher memory limit for peak performance
+            cpu: "8000m"         # Maximum CPU for ultra-high TPS
+            ephemeral-storage: "10Gi"
+            hugepages-2Mi: "256Mi"
+        
+        # Production-Tuned Health Checks
+        livenessProbe:
+          httpGet:
+            path: /q/health/live
+            port: 9003
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 15
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /q/health/ready
+            port: 9003
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        
+        startupProbe:
+          httpGet:
+            path: /q/health/started
+            port: 9003
+            scheme: HTTP
+          initialDelaySeconds: 2
+          periodSeconds: 2
+          timeoutSeconds: 2
+          successThreshold: 1
+          failureThreshold: 30
+        
+        # Comprehensive Port Configuration
+        ports:
+        - name: http
+          containerPort: 9003
+          protocol: TCP
+        - name: grpc
+          containerPort: 9004
+          protocol: TCP
+        - name: metrics
+          containerPort: 9003
+          protocol: TCP
+        - name: debug
+          containerPort: 9005
+          protocol: TCP
+        
+        # Production Environment Variables
+        env:
+        - name: QUARKUS_PROFILE
+          value: "production"
+        - name: QUARKUS_HTTP_HOST
+          value: "0.0.0.0"
+        - name: QUARKUS_GRPC_SERVER_HOST
+          value: "0.0.0.0"
+        - name: AURIGRAPH_NATIVE_MODE
+          value: "true"
+        - name: AURIGRAPH_PRODUCTION_MODE
+          value: "true"
+        - name: AURIGRAPH_K8S_DEPLOYMENT
+          value: "true"
+        - name: CONSENSUS_NODE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: CONSENSUS_CLUSTER_SIZE
+          value: "5"
+        - name: AI_OPTIMIZATION_ENABLED
+          value: "true"
+        - name: AI_OPTIMIZATION_TARGET_TPS
+          value: "3500000"
+        - name: QUANTUM_CRYPTO_ENABLED
+          value: "true"
+        - name: PERFORMANCE_ULTRA_MODE
+          value: "true"
+        - name: NUMA_NODE
+          valueFrom:
+            fieldRef:
+              fieldPath: status.hostIP
+        
+        # JVM and Native Tuning Environment Variables
+        - name: MALLOC_ARENA_MAX
+          value: "2"
+        - name: MALLOC_MMAP_THRESHOLD_
+          value: "65536"
+        - name: MALLOC_TRIM_THRESHOLD_
+          value: "131072"
+        - name: MALLOC_TOP_PAD_
+          value: "65536"
+        - name: MALLOC_MMAP_MAX_
+          value: "2048"
+        
+        # Configuration from ConfigMap and Secrets
+        envFrom:
+        - configMapRef:
+            name: aurigraph-v11-production-config
+        - secretRef:
+            name: aurigraph-v11-production-secrets
+            optional: false
+        
+        # Volume Mounts for Production Data and Configuration
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+          readOnly: true
+        - name: data-volume
+          mountPath: /app/data
+        - name: logs-volume
+          mountPath: /app/logs
+        - name: tmp-volume
+          mountPath: /tmp
+        - name: secrets-volume
+          mountPath: /app/secrets
+          readOnly: true
+        - name: hugepages
+          mountPath: /dev/hugepages
+        
+        # Enhanced Security Context
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1001
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - NET_BIND_SERVICE
+      
+      # Init Containers for Production Setup
+      initContainers:
+      - name: setup-permissions
+        image: busybox:1.35
+        command: ['sh', '-c']
+        args:
+        - |
+          chown -R 1001:1001 /app/data /app/logs
+          chmod 755 /app/data /app/logs
+          mkdir -p /app/data/consensus /app/data/transactions /app/data/ai-models
+        volumeMounts:
+        - name: data-volume
+          mountPath: /app/data
+        - name: logs-volume
+          mountPath: /app/logs
+        securityContext:
+          runAsUser: 0
+      
+      # Production Volumes
+      volumes:
+      - name: config-volume
+        configMap:
+          name: aurigraph-v11-production-config
+          defaultMode: 0644
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: aurigraph-v11-production-data
+      - name: logs-volume
+        emptyDir:
+          sizeLimit: "10Gi"
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: "2Gi"
+          medium: Memory
+      - name: secrets-volume
+        secret:
+          secretName: aurigraph-v11-production-secrets
+          defaultMode: 0400
+      - name: hugepages
+        emptyDir:
+          medium: HugePages-2Mi
+          sizeLimit: "256Mi"
+      
+      # DNS Configuration for Production
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "2"
+        - name: edns0
+        - name: single-request-reopen
+      
+      # Production Termination Settings
+      terminationGracePeriodSeconds: 60
+      
+      # Image Pull Secrets for Production Registry
+      imagePullSecrets:
+      - name: aurigraph-production-registry-secret
+
+---
+# Production Service with Load Balancing
+apiVersion: v1
+kind: Service
+metadata:
+  name: aurigraph-v11-production-service
+  namespace: aurigraph-production
+  labels:
+    app: aurigraph-v11
+    component: dlt-platform
+    environment: production
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: "deregistration_delay.timeout_seconds=30,stickiness.enabled=true,stickiness.type=source_ip"
+spec:
+  type: LoadBalancer
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 3600
+  ports:
+  - name: http
+    port: 9003
+    targetPort: 9003
+    protocol: TCP
+  - name: grpc
+    port: 9004
+    targetPort: 9004
+    protocol: TCP
+  - name: https
+    port: 443
+    targetPort: 9003
+    protocol: TCP
+  selector:
+    app: aurigraph-v11
+    deployment-type: production-native
+  loadBalancerSourceRanges:
+  - 10.0.0.0/8
+  - 172.16.0.0/12
+  - 192.168.0.0/16
+
+---
+# Headless Service for StatefulSet Discovery
+apiVersion: v1
+kind: Service
+metadata:
+  name: aurigraph-v11-production-headless
+  namespace: aurigraph-production
+  labels:
+    app: aurigraph-v11
+    component: dlt-platform
+    environment: production
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+  - name: http
+    port: 9003
+    targetPort: 9003
+  - name: grpc
+    port: 9004
+    targetPort: 9004
+  selector:
+    app: aurigraph-v11
+    deployment-type: production-native

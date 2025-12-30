@@ -1,0 +1,138 @@
+################################################################################
+# Dockerfile.native - Optimized Native Quarkus/GraalVM Container for Aurigraph V11
+# Targets: 2M+ TPS, <1s startup, <256MB memory footprint
+################################################################################
+
+# Stage 1: Build the native executable
+FROM ghcr.io/graalvm/native-image-community:21-muslib AS build
+
+# Install build dependencies
+RUN microdnf install -y findutils tar gzip && \
+    microdnf clean all
+
+# Set working directory
+WORKDIR /build
+
+# Copy Maven wrapper and pom.xml for dependency caching
+COPY .mvn/ .mvn/
+COPY mvnw pom.xml ./
+
+# Download dependencies (cached layer)
+RUN ./mvnw dependency:go-offline -B
+
+# Copy source code
+COPY src/ src/
+
+# Build native executable with ultra optimization profile
+ARG BUILD_PROFILE=native-ultra
+RUN ./mvnw clean package -P${BUILD_PROFILE} \
+    -DskipTests \
+    -Dquarkus.native.container-build=false \
+    -Dquarkus.native.native-image-xmx=8g
+
+# Verify the native executable was created
+RUN test -f target/*-runner || (echo "Native build failed!" && exit 1)
+
+################################################################################
+# Stage 2: Create the minimal runtime container
+################################################################################
+
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.3
+
+# Install runtime dependencies
+RUN microdnf install -y \
+    shadow-utils \
+    libstdc++ \
+    zlib \
+    && microdnf clean all
+
+# Create non-root user for security
+RUN useradd -r -u 1001 -g root -s /bin/bash aurigraph
+
+# Set up application directory
+WORKDIR /app
+
+# Copy native executable from build stage
+COPY --from=build --chown=1001:root /build/target/*-runner /app/aurigraph-v11
+
+# Copy configuration files
+COPY --chown=1001:root src/main/resources/application.properties /app/config/
+COPY --chown=1001:root src/main/resources/META-INF/ /app/META-INF/
+
+# Copy health check script
+COPY --chown=1001:root health-check.sh /app/health-check.sh
+RUN chmod +x /app/health-check.sh
+
+# Create necessary directories for LevelDB and logs
+RUN mkdir -p /app/data/leveldb /app/data/snapshots /app/logs /app/tmp && \
+    chown -R 1001:root /app && \
+    chmod -R 775 /app
+
+# Environment variables for optimal performance
+ENV JAVA_OPTS_NATIVE="-Dquarkus.http.host=0.0.0.0 \
+    -Dquarkus.http.port=9003 \
+    -Dquarkus.grpc.server.port=9004 \
+    -Djava.io.tmpdir=/app/tmp"
+
+# Performance tuning environment variables
+ENV AURIGRAPH_NODE_ID="${HOSTNAME:-node-1}" \
+    AURIGRAPH_CLUSTER_ENABLED="true" \
+    AURIGRAPH_TARGET_TPS="2000000" \
+    AURIGRAPH_CONSENSUS_TYPE="hyperraft-plus" \
+    AURIGRAPH_CRYPTO_MODE="quantum-resistant" \
+    AURIGRAPH_AI_OPTIMIZATION="enabled" \
+    AURIGRAPH_LOG_LEVEL="INFO" \
+    AURIGRAPH_METRICS_ENABLED="true"
+
+# Network settings for high performance
+ENV AURIGRAPH_MAX_CONNECTIONS="10000" \
+    AURIGRAPH_THREAD_POOL_SIZE="256" \
+    AURIGRAPH_BATCH_SIZE="50000" \
+    AURIGRAPH_MEMORY_MODE="optimized"
+
+# LevelDB Configuration for State Management
+# Integrated bare-metal database for all node types
+ENV LEVELDB_PATH="/app/data/leveldb" \
+    LEVELDB_CACHE_SIZE="512m" \
+    LEVELDB_BLOCK_SIZE="4096" \
+    LEVELDB_WRITE_BUFFER_SIZE="64m" \
+    LEVELDB_MAX_OPEN_FILES="1024" \
+    LEVELDB_BLOOM_FILTER="true" \
+    LEVELDB_COMPRESSION="snappy" \
+    LEVELDB_SNAPSHOTS_DIR="/app/data/snapshots" \
+    LEVELDB_WAL_ENABLED="true"
+
+# Health check configuration (includes LevelDB health check)
+HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \
+    CMD /app/health-check.sh || exit 1
+
+# Switch to non-root user
+USER 1001
+
+# Expose ports for Validator/Business/Slim node variants
+# Validator Nodes: 9003-9005
+# Business Nodes: 9006-9008
+# Slim Nodes: 9009-9011
+# Metrics: 9090-9093
+EXPOSE 9003 9004 9005 9006 9007 9008 9009 9010 9011 9090 9091 9092 9093
+
+# Set the entrypoint
+ENTRYPOINT ["/app/aurigraph-v11"]
+
+# Default command arguments
+CMD ["-Dquarkus.http.host=0.0.0.0", \
+     "-Dquarkus.http.port=9003", \
+     "-Dquarkus.grpc.server.port=9004", \
+     "-Djava.io.tmpdir=/app/tmp"]
+
+# Labels for container metadata
+LABEL name="aurigraph-v11-native" \
+      version="11.0.0" \
+      description="Aurigraph V11 Native GraalVM Container - Ultra Performance Edition" \
+      maintainer="Aurigraph DLT Team" \
+      performance.tps="2000000+" \
+      performance.startup="<1s" \
+      performance.memory="<256MB" \
+      build.profile="${BUILD_PROFILE}" \
+      runtime="GraalVM Native" \
+      architecture="linux/amd64,linux/arm64"

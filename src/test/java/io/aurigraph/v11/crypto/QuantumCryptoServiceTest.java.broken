@@ -1,0 +1,802 @@
+package io.aurigraph.v11.crypto;
+
+import io.quarkus.test.junit.QuarkusTest;
+import jakarta.inject.Inject;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.IntStream;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Comprehensive test suite for QuantumCryptoService
+ * Target: 95%+ line coverage, 90%+ function coverage
+ *
+ * Test Categories:
+ * 1. Key Generation (Kyber, Dilithium, SPHINCS+)
+ * 2. Encryption and Decryption (Kyber)
+ * 3. Digital Signatures (Dilithium, SPHINCS+)
+ * 4. Key Storage and Management
+ * 5. Performance and Metrics
+ * 6. Error Handling and Edge Cases
+ * 7. Concurrent Access and Thread Safety
+ * 8. Quantum Resistance Validation
+ */
+@QuarkusTest
+@DisplayName("QuantumCryptoService Comprehensive Test Suite")
+class QuantumCryptoServiceTest {
+
+    @Inject
+    QuantumCryptoService cryptoService;
+
+    private static final String TEST_DATA = "Test quantum-resistant data";
+    private static final byte[] TEST_DATA_BYTES = TEST_DATA.getBytes(StandardCharsets.UTF_8);
+
+    // ==================== NESTED TEST CLASSES ====================
+
+    @Nested
+    @DisplayName("Key Generation Tests")
+    class KeyGenerationTests {
+
+        @Test
+        @DisplayName("Should generate Kyber key pair")
+        void testGenerateKyberKeys() {
+            // When
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateKyberKeyPair();
+
+            // Then
+            assertNotNull(keyPair, "Key pair should not be null");
+            assertNotNull(keyPair.publicKey(), "Public key should not be null");
+            assertNotNull(keyPair.privateKey(), "Private key should not be null");
+            assertEquals("KYBER", keyPair.algorithm());
+            assertTrue(keyPair.publicKey().length > 1000, "Kyber public key should be > 1000 bytes");
+            assertTrue(keyPair.privateKey().length > 2000, "Kyber private key should be > 2000 bytes");
+        }
+
+        @Test
+        @DisplayName("Should generate Dilithium key pair")
+        void testGenerateDilithiumKeys() {
+            // When
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateDilithiumKeyPair();
+
+            // Then
+            assertNotNull(keyPair);
+            assertNotNull(keyPair.publicKey());
+            assertNotNull(keyPair.privateKey());
+            assertEquals("DILITHIUM", keyPair.algorithm());
+            assertTrue(keyPair.publicKey().length > 2000, "Dilithium public key should be > 2000 bytes");
+            assertTrue(keyPair.privateKey().length > 4000, "Dilithium private key should be > 4000 bytes");
+        }
+
+        @Test
+        @DisplayName("Should generate SPHINCS+ key pair")
+        void testGenerateSPHINCSPlusKeys() {
+            // When
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateSPHINCSPlusKeyPair();
+
+            // Then
+            assertNotNull(keyPair);
+            assertNotNull(keyPair.publicKey());
+            assertNotNull(keyPair.privateKey());
+            assertEquals("SPHINCSPLUS", keyPair.algorithm());
+            assertNotNull(keyPair.keyId(), "Key ID should be assigned");
+        }
+
+        @Test
+        @DisplayName("Should generate unique key pairs")
+        void testUniqueKeyGeneration() {
+            // When
+            QuantumCryptoService.QuantumKeyPair kyber1 = cryptoService.generateKyberKeyPair();
+            QuantumCryptoService.QuantumKeyPair kyber2 = cryptoService.generateKyberKeyPair();
+
+            // Then
+            assertFalse(java.util.Arrays.equals(kyber1.publicKey(), kyber2.publicKey()),
+                "Public keys should be different");
+            assertFalse(java.util.Arrays.equals(kyber1.privateKey(), kyber2.privateKey()),
+                "Private keys should be different");
+        }
+
+        @Test
+        @DisplayName("Should generate keys with different security levels")
+        void testSecurityLevels() {
+            // When
+            QuantumCryptoService.QuantumKeyPair level3 = cryptoService.generateKyberKeyPair(3);
+            QuantumCryptoService.QuantumKeyPair level5 = cryptoService.generateKyberKeyPair(5);
+
+            // Then
+            assertNotNull(level3);
+            assertNotNull(level5);
+            // Level 5 keys should be larger than level 3
+            assertTrue(level5.publicKey().length >= level3.publicKey().length,
+                "Higher security level should have larger or equal key size");
+        }
+    }
+
+    @Nested
+    @DisplayName("Encryption and Decryption Tests")
+    class EncryptionDecryptionTests {
+
+        @Test
+        @DisplayName("Should encrypt and decrypt data using Kyber")
+        void testKyberEncryptionDecryption() {
+            // Given
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateKyberKeyPair();
+
+            // When
+            byte[] encrypted = cryptoService.encryptWithKyber(TEST_DATA_BYTES, keyPair.publicKey());
+            byte[] decrypted = cryptoService.decryptWithKyber(encrypted, keyPair.privateKey());
+
+            // Then
+            assertNotNull(encrypted, "Encrypted data should not be null");
+            assertNotNull(decrypted, "Decrypted data should not be null");
+            assertArrayEquals(TEST_DATA_BYTES, decrypted, "Decrypted data should match original");
+            assertFalse(java.util.Arrays.equals(TEST_DATA_BYTES, encrypted),
+                "Encrypted data should be different from original");
+        }
+
+        @Test
+        @DisplayName("Should handle empty data encryption")
+        void testEmptyDataEncryption() {
+            // Given
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateKyberKeyPair();
+            byte[] emptyData = new byte[0];
+
+            // When
+            byte[] encrypted = cryptoService.encryptWithKyber(emptyData, keyPair.publicKey());
+            byte[] decrypted = cryptoService.decryptWithKyber(encrypted, keyPair.privateKey());
+
+            // Then
+            assertNotNull(encrypted);
+            assertNotNull(decrypted);
+            assertArrayEquals(emptyData, decrypted);
+        }
+
+        @Test
+        @DisplayName("Should handle large data encryption")
+        void testLargeDataEncryption() {
+            // Given
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateKyberKeyPair();
+            byte[] largeData = new byte[10000];
+            java.util.Random random = new java.util.Random();
+            random.nextBytes(largeData);
+
+            // When
+            byte[] encrypted = cryptoService.encryptWithKyber(largeData, keyPair.publicKey());
+            byte[] decrypted = cryptoService.decryptWithKyber(encrypted, keyPair.privateKey());
+
+            // Then
+            assertNotNull(encrypted);
+            assertNotNull(decrypted);
+            assertArrayEquals(largeData, decrypted, "Large data should decrypt correctly");
+        }
+
+        @Test
+        @DisplayName("Should fail decryption with wrong private key")
+        void testDecryptionWithWrongKey() {
+            // Given
+            QuantumCryptoService.QuantumKeyPair keyPair1 = cryptoService.generateKyberKeyPair();
+            QuantumCryptoService.QuantumKeyPair keyPair2 = cryptoService.generateKyberKeyPair();
+
+            byte[] encrypted = cryptoService.encryptWithKyber(TEST_DATA_BYTES, keyPair1.publicKey());
+
+            // When/Then - should throw exception or return incorrect data
+            assertThrows(RuntimeException.class, () -> {
+                cryptoService.decryptWithKyber(encrypted, keyPair2.privateKey());
+            }, "Decryption with wrong key should fail");
+        }
+
+        @Test
+        @DisplayName("Should encrypt data multiple times with different results")
+        void testNonDeterministicEncryption() {
+            // Given
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateKyberKeyPair();
+
+            // When
+            byte[] encrypted1 = cryptoService.encryptWithKyber(TEST_DATA_BYTES, keyPair.publicKey());
+            byte[] encrypted2 = cryptoService.encryptWithKyber(TEST_DATA_BYTES, keyPair.publicKey());
+
+            // Then
+            assertFalse(java.util.Arrays.equals(encrypted1, encrypted2),
+                "Encryption should be non-deterministic (use random padding/nonce)");
+
+            // But both should decrypt to same data
+            byte[] decrypted1 = cryptoService.decryptWithKyber(encrypted1, keyPair.privateKey());
+            byte[] decrypted2 = cryptoService.decryptWithKyber(encrypted2, keyPair.privateKey());
+            assertArrayEquals(decrypted1, decrypted2);
+        }
+    }
+
+    @Nested
+    @DisplayName("Digital Signature Tests")
+    class DigitalSignatureTests {
+
+        @Test
+        @DisplayName("Should sign and verify data using Dilithium")
+        void testDilithiumSignatureVerification() {
+            // Given
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateDilithiumKeyPair();
+
+            // When
+            byte[] signature = cryptoService.signWithDilithium(TEST_DATA_BYTES, keyPair.privateKey());
+            boolean verified = cryptoService.verifyDilithiumSignature(
+                TEST_DATA_BYTES, signature, keyPair.publicKey()
+            );
+
+            // Then
+            assertNotNull(signature, "Signature should not be null");
+            assertTrue(signature.length > 2000, "Dilithium signature should be > 2000 bytes");
+            assertTrue(verified, "Signature should be verified successfully");
+        }
+
+        @Test
+        @DisplayName("Should sign and verify data using SPHINCS+")
+        void testSPHINCSPlusSignatureVerification() {
+            // Given
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateSPHINCSPlusKeyPair();
+
+            // When
+            byte[] signature = cryptoService.signWithSPHINCSPlus(TEST_DATA_BYTES, keyPair.privateKey());
+            boolean verified = cryptoService.verifySPHINCSPlusSignature(
+                TEST_DATA_BYTES, signature, keyPair.publicKey()
+            );
+
+            // Then
+            assertNotNull(signature);
+            assertTrue(verified, "SPHINCS+ signature should be verified");
+        }
+
+        @Test
+        @DisplayName("Should fail verification with tampered data")
+        void testTamperedDataVerification() {
+            // Given
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateDilithiumKeyPair();
+            byte[] signature = cryptoService.signWithDilithium(TEST_DATA_BYTES, keyPair.privateKey());
+
+            // Tamper with data
+            byte[] tamperedData = "Tampered quantum data".getBytes(StandardCharsets.UTF_8);
+
+            // When
+            boolean verified = cryptoService.verifyDilithiumSignature(
+                tamperedData, signature, keyPair.publicKey()
+            );
+
+            // Then
+            assertFalse(verified, "Verification should fail with tampered data");
+        }
+
+        @Test
+        @DisplayName("Should fail verification with tampered signature")
+        void testTamperedSignatureVerification() {
+            // Given
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateDilithiumKeyPair();
+            byte[] signature = cryptoService.signWithDilithium(TEST_DATA_BYTES, keyPair.privateKey());
+
+            // Tamper with signature
+            signature[0] = (byte) (signature[0] ^ 0xFF);
+
+            // When
+            boolean verified = cryptoService.verifyDilithiumSignature(
+                TEST_DATA_BYTES, signature, keyPair.publicKey()
+            );
+
+            // Then
+            assertFalse(verified, "Verification should fail with tampered signature");
+        }
+
+        @Test
+        @DisplayName("Should fail verification with wrong public key")
+        void testVerificationWithWrongKey() {
+            // Given
+            QuantumCryptoService.QuantumKeyPair keyPair1 = cryptoService.generateDilithiumKeyPair();
+            QuantumCryptoService.QuantumKeyPair keyPair2 = cryptoService.generateDilithiumKeyPair();
+
+            byte[] signature = cryptoService.signWithDilithium(TEST_DATA_BYTES, keyPair1.privateKey());
+
+            // When
+            boolean verified = cryptoService.verifyDilithiumSignature(
+                TEST_DATA_BYTES, signature, keyPair2.publicKey()
+            );
+
+            // Then
+            assertFalse(verified, "Verification should fail with wrong public key");
+        }
+
+        @Test
+        @DisplayName("Should sign large data sets")
+        void testLargeDataSigning() {
+            // Given
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateDilithiumKeyPair();
+            byte[] largeData = new byte[100000];
+            java.util.Random random = new java.util.Random();
+            random.nextBytes(largeData);
+
+            // When
+            byte[] signature = cryptoService.signWithDilithium(largeData, keyPair.privateKey());
+            boolean verified = cryptoService.verifyDilithiumSignature(
+                largeData, signature, keyPair.publicKey()
+            );
+
+            // Then
+            assertNotNull(signature);
+            assertTrue(verified, "Large data should be signed and verified correctly");
+        }
+    }
+
+    @Nested
+    @DisplayName("Key Storage and Management Tests")
+    class KeyManagementTests {
+
+        @Test
+        @DisplayName("Should store and retrieve key pair")
+        void testKeyStorage() {
+            // Given
+            String keyId = "test-key-001";
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateKyberKeyPair();
+
+            // When
+            cryptoService.storeKeyPair(keyId, keyPair);
+            QuantumCryptoService.QuantumKeyPair retrieved = cryptoService.getKeyPair(keyId);
+
+            // Then
+            assertNotNull(retrieved, "Retrieved key pair should not be null");
+            assertArrayEquals(keyPair.publicKey(), retrieved.publicKey(), "Public keys should match");
+            assertArrayEquals(keyPair.privateKey(), retrieved.privateKey(), "Private keys should match");
+            assertEquals(keyPair.algorithm(), retrieved.algorithm());
+        }
+
+        @Test
+        @DisplayName("Should delete stored key pair")
+        void testKeyDeletion() {
+            // Given
+            String keyId = "test-key-delete-001";
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateKyberKeyPair();
+            cryptoService.storeKeyPair(keyId, keyPair);
+
+            // When
+            boolean deleted = cryptoService.deleteKeyPair(keyId);
+            QuantumCryptoService.QuantumKeyPair retrieved = cryptoService.getKeyPair(keyId);
+
+            // Then
+            assertTrue(deleted, "Key pair should be deleted");
+            assertNull(retrieved, "Deleted key pair should not be retrievable");
+        }
+
+        @Test
+        @DisplayName("Should list stored keys")
+        void testListStoredKeys() {
+            // Given
+            String keyId1 = "test-key-list-001";
+            String keyId2 = "test-key-list-002";
+            cryptoService.storeKeyPair(keyId1, cryptoService.generateKyberKeyPair());
+            cryptoService.storeKeyPair(keyId2, cryptoService.generateDilithiumKeyPair());
+
+            // When
+            List<String> keyIds = cryptoService.listStoredKeys();
+
+            // Then
+            assertNotNull(keyIds);
+            assertTrue(keyIds.contains(keyId1), "Should contain first key");
+            assertTrue(keyIds.contains(keyId2), "Should contain second key");
+        }
+
+        @Test
+        @DisplayName("Should handle non-existent key retrieval")
+        void testNonExistentKeyRetrieval() {
+            // When
+            QuantumCryptoService.QuantumKeyPair retrieved =
+                cryptoService.getKeyPair("non-existent-key");
+
+            // Then
+            assertNull(retrieved, "Non-existent key should return null");
+        }
+
+        @Test
+        @DisplayName("Should export and import key pair")
+        void testKeyExportImport() {
+            // Given
+            QuantumCryptoService.QuantumKeyPair original = cryptoService.generateKyberKeyPair();
+
+            // When
+            String exported = cryptoService.exportKeyPair(original);
+            QuantumCryptoService.QuantumKeyPair imported = cryptoService.importKeyPair(exported);
+
+            // Then
+            assertNotNull(exported, "Exported key should not be null");
+            assertNotNull(imported, "Imported key should not be null");
+            assertArrayEquals(original.publicKey(), imported.publicKey(), "Public keys should match");
+            assertArrayEquals(original.privateKey(), imported.privateKey(), "Private keys should match");
+        }
+    }
+
+    @Nested
+    @DisplayName("Performance and Metrics Tests")
+    class PerformanceTests {
+
+        @Test
+        @DisplayName("Should track cryptographic operations")
+        void testOperationTracking() {
+            // Given
+            long initialOps = cryptoService.getTotalOperations();
+
+            // When
+            cryptoService.generateKyberKeyPair();
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateDilithiumKeyPair();
+            cryptoService.signWithDilithium(TEST_DATA_BYTES, keyPair.privateKey());
+
+            // Then
+            long finalOps = cryptoService.getTotalOperations();
+            assertTrue(finalOps > initialOps, "Operation count should increase");
+        }
+
+        @Test
+        @DisplayName("Should track key generations")
+        void testKeyGenerationTracking() {
+            // Given
+            long initialCount = cryptoService.getKeyGenerationCount();
+
+            // When
+            cryptoService.generateKyberKeyPair();
+            cryptoService.generateDilithiumKeyPair();
+
+            // Then
+            long finalCount = cryptoService.getKeyGenerationCount();
+            assertTrue(finalCount >= initialCount + 2, "Key generation count should increase by at least 2");
+        }
+
+        @Test
+        @DisplayName("Should track encryption operations")
+        void testEncryptionTracking() {
+            // Given
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateKyberKeyPair();
+            long initialCount = cryptoService.getEncryptionCount();
+
+            // When
+            cryptoService.encryptWithKyber(TEST_DATA_BYTES, keyPair.publicKey());
+            cryptoService.encryptWithKyber(TEST_DATA_BYTES, keyPair.publicKey());
+
+            // Then
+            long finalCount = cryptoService.getEncryptionCount();
+            assertTrue(finalCount >= initialCount + 2, "Encryption count should increase");
+        }
+
+        @Test
+        @DisplayName("Should track signature operations")
+        void testSignatureTracking() {
+            // Given
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateDilithiumKeyPair();
+            long initialCount = cryptoService.getSignatureCount();
+
+            // When
+            cryptoService.signWithDilithium(TEST_DATA_BYTES, keyPair.privateKey());
+
+            // Then
+            long finalCount = cryptoService.getSignatureCount();
+            assertTrue(finalCount >= initialCount + 1, "Signature count should increase");
+        }
+
+        @Test
+        @DisplayName("Should measure encryption performance")
+        void testEncryptionPerformance() {
+            // Given
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateKyberKeyPair();
+            int iterations = 100;
+
+            // When
+            long startTime = System.nanoTime();
+            for (int i = 0; i < iterations; i++) {
+                cryptoService.encryptWithKyber(TEST_DATA_BYTES, keyPair.publicKey());
+            }
+            long duration = System.nanoTime() - startTime;
+
+            // Then
+            double opsPerSecond = (double) iterations * 1_000_000_000.0 / duration;
+            System.out.printf("Kyber encryption: %d ops in %.2f ms (%.0f ops/sec)%n",
+                iterations, duration / 1_000_000.0, opsPerSecond);
+            assertTrue(opsPerSecond > 10, "Should achieve > 10 ops/sec");
+        }
+
+        @Test
+        @DisplayName("Should measure signing performance")
+        void testSigningPerformance() {
+            // Given
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateDilithiumKeyPair();
+            int iterations = 50;
+
+            // When
+            long startTime = System.nanoTime();
+            for (int i = 0; i < iterations; i++) {
+                cryptoService.signWithDilithium(TEST_DATA_BYTES, keyPair.privateKey());
+            }
+            long duration = System.nanoTime() - startTime;
+
+            // Then
+            double opsPerSecond = (double) iterations * 1_000_000_000.0 / duration;
+            System.out.printf("Dilithium signing: %d ops in %.2f ms (%.0f ops/sec)%n",
+                iterations, duration / 1_000_000.0, opsPerSecond);
+            assertTrue(opsPerSecond > 5, "Should achieve > 5 ops/sec");
+        }
+    }
+
+    @Nested
+    @DisplayName("Concurrent Access and Thread Safety Tests")
+    class ConcurrencyTests {
+
+        @Test
+        @DisplayName("Should handle concurrent key generation")
+        void testConcurrentKeyGeneration() throws InterruptedException {
+            // Given
+            int threadCount = 20;
+            List<Thread> threads = new ArrayList<>();
+            List<QuantumCryptoService.QuantumKeyPair> keyPairs = new ArrayList<>();
+
+            // When
+            for (int i = 0; i < threadCount; i++) {
+                Thread thread = new Thread(() -> {
+                    QuantumCryptoService.QuantumKeyPair keyPair =
+                        cryptoService.generateKyberKeyPair();
+                    synchronized (keyPairs) {
+                        keyPairs.add(keyPair);
+                    }
+                });
+                threads.add(thread);
+                thread.start();
+            }
+
+            for (Thread thread : threads) {
+                thread.join();
+            }
+
+            // Then
+            assertEquals(threadCount, keyPairs.size(), "All threads should generate keys");
+            // Verify all keys are unique
+            for (int i = 0; i < keyPairs.size(); i++) {
+                for (int j = i + 1; j < keyPairs.size(); j++) {
+                    assertFalse(
+                        java.util.Arrays.equals(keyPairs.get(i).publicKey(), keyPairs.get(j).publicKey()),
+                        "All keys should be unique"
+                    );
+                }
+            }
+        }
+
+        @Test
+        @DisplayName("Should handle concurrent encryption")
+        void testConcurrentEncryption() throws ExecutionException, InterruptedException {
+            // Given
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateKyberKeyPair();
+            int concurrentOps = 50;
+
+            // When
+            List<CompletableFuture<byte[]>> futures = IntStream.range(0, concurrentOps)
+                .mapToObj(i -> CompletableFuture.supplyAsync(() ->
+                    cryptoService.encryptWithKyber(
+                        ("Data " + i).getBytes(StandardCharsets.UTF_8),
+                        keyPair.publicKey()
+                    )
+                ))
+                .toList();
+
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
+
+            // Then
+            for (CompletableFuture<byte[]> future : futures) {
+                byte[] encrypted = future.get();
+                assertNotNull(encrypted, "All encryptions should succeed");
+            }
+        }
+
+        @Test
+        @DisplayName("Should handle concurrent signing")
+        void testConcurrentSigning() throws ExecutionException, InterruptedException {
+            // Given
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateDilithiumKeyPair();
+            int concurrentOps = 30;
+
+            // When
+            List<CompletableFuture<byte[]>> futures = IntStream.range(0, concurrentOps)
+                .mapToObj(i -> CompletableFuture.supplyAsync(() ->
+                    cryptoService.signWithDilithium(
+                        ("Message " + i).getBytes(StandardCharsets.UTF_8),
+                        keyPair.privateKey()
+                    )
+                ))
+                .toList();
+
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
+
+            // Then
+            for (CompletableFuture<byte[]> future : futures) {
+                byte[] signature = future.get();
+                assertNotNull(signature, "All signatures should be generated");
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("Error Handling and Edge Cases")
+    class ErrorHandlingTests {
+
+        @Test
+        @DisplayName("Should handle null data encryption")
+        void testNullDataEncryption() {
+            // Given
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateKyberKeyPair();
+
+            // When/Then
+            assertThrows(RuntimeException.class, () -> {
+                cryptoService.encryptWithKyber(null, keyPair.publicKey());
+            }, "Should throw exception for null data");
+        }
+
+        @Test
+        @DisplayName("Should handle null key encryption")
+        void testNullKeyEncryption() {
+            // When/Then
+            assertThrows(RuntimeException.class, () -> {
+                cryptoService.encryptWithKyber(TEST_DATA_BYTES, null);
+            }, "Should throw exception for null key");
+        }
+
+        @Test
+        @DisplayName("Should handle invalid key format")
+        void testInvalidKeyFormat() {
+            // Given
+            byte[] invalidKey = "invalid key".getBytes(StandardCharsets.UTF_8);
+
+            // When/Then
+            assertThrows(RuntimeException.class, () -> {
+                cryptoService.encryptWithKyber(TEST_DATA_BYTES, invalidKey);
+            }, "Should throw exception for invalid key format");
+        }
+
+        @Test
+        @DisplayName("Should handle corrupted ciphertext")
+        void testCorruptedCiphertext() {
+            // Given
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateKyberKeyPair();
+            byte[] encrypted = cryptoService.encryptWithKyber(TEST_DATA_BYTES, keyPair.publicKey());
+
+            // Corrupt the ciphertext
+            encrypted[encrypted.length / 2] = (byte) (encrypted[encrypted.length / 2] ^ 0xFF);
+
+            // When/Then
+            assertThrows(RuntimeException.class, () -> {
+                cryptoService.decryptWithKyber(encrypted, keyPair.privateKey());
+            }, "Should throw exception for corrupted ciphertext");
+        }
+    }
+
+    @Nested
+    @DisplayName("Quantum Resistance Validation Tests")
+    class QuantumResistanceTests {
+
+        @Test
+        @DisplayName("Should use NIST-approved algorithms")
+        void testNISTCompliance() {
+            // When
+            List<String> supportedAlgorithms = cryptoService.getSupportedAlgorithms();
+
+            // Then
+            assertNotNull(supportedAlgorithms);
+            assertTrue(supportedAlgorithms.contains("KYBER"), "Should support Kyber");
+            assertTrue(supportedAlgorithms.contains("DILITHIUM"), "Should support Dilithium");
+            assertTrue(supportedAlgorithms.contains("SPHINCSPLUS"), "Should support SPHINCS+");
+        }
+
+        @Test
+        @DisplayName("Should report quantum resistance level")
+        void testQuantumResistanceLevel() {
+            // When
+            QuantumCryptoService.QuantumKeyPair kyberKey = cryptoService.generateKyberKeyPair();
+            int securityLevel = cryptoService.getSecurityLevel(kyberKey);
+
+            // Then
+            assertTrue(securityLevel >= 3 && securityLevel <= 5,
+                "Security level should be between 3 and 5 (NIST levels)");
+        }
+
+        @Test
+        @DisplayName("Should validate key sizes for security level")
+        void testKeySizeValidation() {
+            // When
+            QuantumCryptoService.QuantumKeyPair level3 = cryptoService.generateKyberKeyPair(3);
+            QuantumCryptoService.QuantumKeyPair level5 = cryptoService.generateKyberKeyPair(5);
+
+            // Then
+            assertTrue(level5.publicKey().length >= level3.publicKey().length,
+                "Level 5 should have larger or equal key size");
+            assertTrue(level5.privateKey().length >= level3.privateKey().length,
+                "Level 5 private key should be larger or equal");
+        }
+    }
+
+    @Nested
+    @DisplayName("Integration Tests")
+    class IntegrationTests {
+
+        @Test
+        @DisplayName("Should complete full encryption lifecycle")
+        void testFullEncryptionLifecycle() {
+            // Given
+            String keyId = "integration-key-001";
+
+            // When
+            // 1. Generate and store key pair
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateKyberKeyPair();
+            cryptoService.storeKeyPair(keyId, keyPair);
+
+            // 2. Encrypt data
+            byte[] encrypted = cryptoService.encryptWithKyber(TEST_DATA_BYTES, keyPair.publicKey());
+
+            // 3. Retrieve key pair
+            QuantumCryptoService.QuantumKeyPair retrieved = cryptoService.getKeyPair(keyId);
+
+            // 4. Decrypt data
+            byte[] decrypted = cryptoService.decryptWithKyber(encrypted, retrieved.privateKey());
+
+            // Then
+            assertArrayEquals(TEST_DATA_BYTES, decrypted, "Full lifecycle should preserve data");
+
+            // 5. Cleanup
+            cryptoService.deleteKeyPair(keyId);
+        }
+
+        @Test
+        @DisplayName("Should complete full signing lifecycle")
+        void testFullSigningLifecycle() {
+            // Given
+            String keyId = "integration-sign-001";
+
+            // When
+            // 1. Generate and store key pair
+            QuantumCryptoService.QuantumKeyPair keyPair = cryptoService.generateDilithiumKeyPair();
+            cryptoService.storeKeyPair(keyId, keyPair);
+
+            // 2. Sign data
+            byte[] signature = cryptoService.signWithDilithium(TEST_DATA_BYTES, keyPair.privateKey());
+
+            // 3. Retrieve key pair
+            QuantumCryptoService.QuantumKeyPair retrieved = cryptoService.getKeyPair(keyId);
+
+            // 4. Verify signature
+            boolean verified = cryptoService.verifyDilithiumSignature(
+                TEST_DATA_BYTES, signature, retrieved.publicKey()
+            );
+
+            // Then
+            assertTrue(verified, "Full lifecycle should verify signature correctly");
+
+            // 5. Cleanup
+            cryptoService.deleteKeyPair(keyId);
+        }
+
+        @Test
+        @DisplayName("Should handle mixed cryptographic operations")
+        void testMixedOperations() {
+            // When
+            QuantumCryptoService.QuantumKeyPair kyberKey = cryptoService.generateKyberKeyPair();
+            QuantumCryptoService.QuantumKeyPair dilithiumKey = cryptoService.generateDilithiumKeyPair();
+
+            byte[] encrypted = cryptoService.encryptWithKyber(TEST_DATA_BYTES, kyberKey.publicKey());
+            byte[] signature = cryptoService.signWithDilithium(TEST_DATA_BYTES, dilithiumKey.privateKey());
+
+            byte[] decrypted = cryptoService.decryptWithKyber(encrypted, kyberKey.privateKey());
+            boolean verified = cryptoService.verifyDilithiumSignature(
+                TEST_DATA_BYTES, signature, dilithiumKey.publicKey()
+            );
+
+            // Then
+            assertArrayEquals(TEST_DATA_BYTES, decrypted, "Encryption should work independently");
+            assertTrue(verified, "Signing should work independently");
+        }
+    }
+}

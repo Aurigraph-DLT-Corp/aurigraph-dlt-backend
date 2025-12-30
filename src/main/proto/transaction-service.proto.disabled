@@ -1,0 +1,122 @@
+syntax = "proto3";
+
+package io.aurigraph.v11.grpc;
+
+option java_multiple_files = true;
+option java_package = "io.aurigraph.v11.grpc.transaction";
+option java_outer_classname = "TransactionServiceProto";
+
+// Transaction Service - High-performance transaction processing
+service TransactionService {
+  // Submit a single transaction
+  rpc SubmitTransaction(TransactionRequest) returns (TransactionResponse);
+
+  // Submit batch of transactions
+  rpc SubmitTransactionBatch(TransactionBatchRequest) returns (TransactionBatchResponse);
+
+  // Get transaction by ID
+  rpc GetTransaction(TransactionQuery) returns (TransactionDetail);
+
+  // Get transaction status
+  rpc GetTransactionStatus(TransactionQuery) returns (TransactionStatusResponse);
+
+  // Stream transaction updates (bidirectional)
+  rpc StreamTransactions(stream TransactionRequest) returns (stream TransactionResponse);
+
+  // Validate transaction without submitting
+  rpc ValidateTransaction(TransactionRequest) returns (ValidationResponse);
+}
+
+message TransactionRequest {
+  string transaction_id = 1;
+  string from_address = 2;
+  string to_address = 3;
+  int64 amount = 4;
+  int64 fee = 5;
+  int64 nonce = 6;
+  bytes signature = 7;
+  bytes public_key = 8;
+  int64 timestamp = 9;
+  map<string, string> metadata = 10;
+  TransactionType type = 11;
+}
+
+message TransactionBatchRequest {
+  repeated TransactionRequest transactions = 1;
+  bool parallel_execution = 2;
+  int32 priority = 3;
+}
+
+message TransactionResponse {
+  string transaction_id = 1;
+  TransactionStatus status = 2;
+  string message = 3;
+  int64 block_number = 4;
+  int64 block_index = 5;
+  int64 timestamp = 6;
+  int64 gas_used = 7;
+}
+
+message TransactionBatchResponse {
+  int32 total_transactions = 1;
+  int32 successful_transactions = 2;
+  int32 failed_transactions = 3;
+  repeated TransactionResponse results = 4;
+  int64 processing_time_ms = 5;
+}
+
+message TransactionQuery {
+  string transaction_id = 1;
+  string block_hash = 2;
+  int64 block_number = 3;
+}
+
+message TransactionDetail {
+  string transaction_id = 1;
+  string from_address = 2;
+  string to_address = 3;
+  int64 amount = 4;
+  int64 fee = 5;
+  int64 nonce = 6;
+  bytes signature = 7;
+  int64 block_number = 8;
+  int64 block_timestamp = 9;
+  int32 confirmations = 10;
+  TransactionStatus status = 11;
+  string block_hash = 12;
+}
+
+message TransactionStatusResponse {
+  string transaction_id = 1;
+  TransactionStatus status = 2;
+  int32 confirmations = 3;
+  bool finalized = 4;
+}
+
+message ValidationResponse {
+  bool valid = 1;
+  repeated string errors = 2;
+  repeated string warnings = 3;
+  int64 estimated_gas = 4;
+}
+
+enum TransactionType {
+  TRANSFER = 0;
+  SMART_CONTRACT_DEPLOY = 1;
+  SMART_CONTRACT_CALL = 2;
+  STAKE = 3;
+  UNSTAKE = 4;
+  VOTE = 5;
+  BRIDGE_TRANSFER = 6;
+}
+
+enum TransactionStatus {
+  PENDING = 0;
+  VALIDATING = 1;
+  IN_MEMPOOL = 2;
+  PROCESSING = 3;
+  CONFIRMED = 4;
+  FINALIZED = 5;
+  FAILED = 6;
+  REJECTED = 7;
+}

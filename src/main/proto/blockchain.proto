@@ -1,0 +1,426 @@
+syntax = "proto3";
+
+package io.aurigraph.v11.proto;
+
+import "google/protobuf/timestamp.proto";
+import "common.proto";
+import "core_types.proto";
+
+option java_multiple_files = true;
+option java_package = "io.aurigraph.v11.proto";
+option java_outer_classname = "BlockchainProto";
+
+/**
+ * Blockchain Protocol Buffer Definitions
+ *
+ * This proto file defines all message types for BlockchainServiceImpl gRPC service.
+ * Supports 7 RPC methods for high-performance blockchain operations:
+ * - createBlock()
+ * - validateBlock()
+ * - getBlockDetails()
+ * - executeTransaction()
+ * - verifyTransaction()
+ * - getBlockchainStatistics()
+ * - streamBlocks()
+ */
+
+// ============================================================================
+// Core Block Message Types
+// ============================================================================
+
+/**
+ * Block represents a single block in the blockchain
+ * Contains all essential block metadata and transaction references
+ */
+message Block {
+  // Block identification
+  string block_hash = 1;           // Unique block hash (hex string)
+  int64 block_height = 2;          // Sequential block number starting from 0
+  string block_id = 3;             // Unique block identifier (UUID)
+
+  // Block metadata
+  string state_root = 4;           // Merkle root of blockchain state
+  string transaction_root = 5;     // Merkle root of transactions
+  string parent_hash = 6;          // Hash of previous block (for chain linkage)
+
+  // Timestamps and status
+  google.protobuf.Timestamp created_at = 7;      // Block creation timestamp
+  google.protobuf.Timestamp finalized_at = 8;    // Block finalization timestamp
+  BlockStatus status = 9;                         // Current block status
+
+  // Transaction details
+  int32 transaction_count = 10;     // Number of transactions in block
+  repeated string transaction_hashes = 11;  // List of transaction hashes
+
+  // Consensus information
+  int32 validator_count = 12;       // Number of validators who signed
+  repeated string validator_signatures = 13;  // Validator signatures
+
+  // Performance metrics
+  int64 processing_time_ms = 14;   // Block processing time in milliseconds
+  double gas_used = 15;            // Total gas used (if applicable)
+}
+
+/**
+ * BlockMetadata contains lightweight block information
+ * Used for caching and quick lookups without full block data
+ */
+message BlockMetadata {
+  string block_hash = 1;
+  int64 block_height = 2;
+  string block_id = 3;
+  string state_root = 4;
+  google.protobuf.Timestamp created_at = 5;
+  BlockStatus status = 6;
+  int32 transaction_count = 7;
+  int64 processing_time_ms = 8;
+}
+
+// ============================================================================
+// Block Creation Request/Response
+// ============================================================================
+
+/**
+ * BlockCreationRequest initiated by consensus mechanism
+ * Contains all necessary information to create a new block
+ */
+message BlockCreationRequest {
+  // Block identification
+  string block_id = 1;                    // Unique block identifier
+  string state_root = 2;                  // Current state root hash
+
+  // Transaction information
+  repeated Transaction transactions = 3;  // Transactions to include
+  string transaction_root = 4;            // Merkle root of transactions
+
+  // Consensus data
+  int32 validator_count = 5;              // Number of validators
+  repeated string validator_public_keys = 6;  // Validator keys
+
+  // Timeout and options
+  int32 timeout_seconds = 7;              // Maximum time to wait
+  bool include_pending_transactions = 8;  // Include pending tx pool
+}
+
+/**
+ * BlockCreationResponse returns newly created block
+ * Sent in response to BlockCreationRequest
+ */
+message BlockCreationResponse {
+  Block block = 1;                        // Created block
+  bool success = 2;                       // Creation success flag
+  string error_message = 3;               // Error message if failed
+  google.protobuf.Timestamp timestamp = 4;  // Response timestamp
+}
+
+// ============================================================================
+// Block Validation Request/Response
+// ============================================================================
+
+/**
+ * BlockValidationRequest for validating block integrity
+ * Used to verify block hash, signatures, and transaction integrity
+ */
+message BlockValidationRequest {
+  string block_hash = 1;               // Hash to validate
+  int64 block_height = 2;              // Expected block height
+  Block block = 3;                     // Full block for validation
+  bool validate_signatures = 4;        // Check validator signatures
+  bool validate_transactions = 5;      // Verify each transaction
+  bool validate_state_root = 6;        // Verify state root computation
+}
+
+/**
+ * BlockValidationResult contains validation outcome
+ * Details any validation failures or warnings
+ */
+message BlockValidationResult {
+  bool is_valid = 1;                   // Overall validation result
+  repeated ValidationError errors = 2; // List of validation errors
+  repeated string warnings = 3;        // Non-critical warnings
+  google.protobuf.Timestamp timestamp = 4;  // Validation timestamp
+  int64 validation_time_ms = 5;        // Time taken to validate
+}
+
+// ValidationError is defined in core_types.proto and reused here
+
+// ============================================================================
+// Block Details Request/Response
+// ============================================================================
+
+/**
+ * BlockDetailsRequest for retrieving block information
+ * Can retrieve by hash or height
+ */
+message BlockDetailsRequest {
+  oneof identifier {
+    string block_hash = 1;             // Retrieve by hash
+    int64 block_height = 2;            // Retrieve by height
+  }
+  bool include_transactions = 3;       // Include full transactions
+  bool include_validators = 4;         // Include validator info
+}
+
+/**
+ * BlockDetailsResponse returns requested block
+ * May include related transaction and validator data
+ */
+message BlockDetailsResponse {
+  Block block = 1;                     // Requested block
+  repeated Transaction transactions = 2;  // Full transactions (if requested)
+  repeated ValidatorInfo validators = 3;  // Validator info (if requested)
+  bool found = 4;                      // Block found in cache/database
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+// ValidatorInfo is defined in core_types.proto and reused here
+
+// ============================================================================
+// Transaction Execution
+// ============================================================================
+
+// Transaction is defined in core_types.proto and reused here
+
+/**
+ * TransactionExecutionRequest initiates transaction execution
+ * Contains transaction data and execution context
+ */
+message TransactionExecutionRequest {
+  Transaction transaction = 1;         // Transaction to execute
+  string execution_context = 2;        // Context for execution
+  int32 timeout_seconds = 3;           // Execution timeout
+  bool validate_before_execute = 4;    // Pre-execution validation flag
+}
+
+/**
+ * TransactionExecutionResponse returns execution result
+ * Includes status, state changes, and any errors
+ */
+message TransactionExecutionResponse {
+  Transaction transaction = 1;         // Executed transaction
+  bool success = 2;                    // Execution success
+  string result_data = 3;              // Execution result
+  repeated StateChange state_changes = 4;  // State modifications
+  string error_message = 5;            // Error if failed
+  google.protobuf.Timestamp timestamp = 6;
+}
+
+/**
+ * StateChange represents a single state modification
+ * Used to track transaction effects on blockchain state
+ */
+message StateChange {
+  string key = 1;                      // State key modified
+  string old_value = 2;                // Previous value
+  string new_value = 3;                // New value
+  string change_type = 4;              // CREATE, UPDATE, DELETE
+}
+
+// ============================================================================
+// Transaction Verification (Merkle Proof)
+// ============================================================================
+
+/**
+ * TransactionVerificationRequest for Merkle proof verification
+ * Used to verify transaction inclusion in block
+ */
+message TransactionVerificationRequest {
+  string transaction_hash = 1;         // Transaction to verify
+  string block_hash = 2;               // Block containing transaction
+  repeated string merkle_proof = 3;    // Merkle proof hashes
+  int32 proof_index = 4;               // Transaction index in block
+}
+
+/**
+ * TransactionVerificationResult contains proof verification outcome
+ * Confirms transaction inclusion via Merkle proof
+ */
+message TransactionVerificationResult {
+  bool is_verified = 1;                // Verification result
+  bool merkle_proof_valid = 2;         // Merkle proof validity
+  string verification_hash = 3;        // Computed root hash
+  string expected_root = 4;            // Block's transaction root
+  string error_message = 5;            // Error if verification failed
+  google.protobuf.Timestamp timestamp = 6;
+  int64 verification_time_ms = 7;      // Time taken to verify
+}
+
+// ============================================================================
+// Blockchain Statistics
+// ============================================================================
+
+/**
+ * BlockchainStatisticsRequest aggregates network metrics
+ * Can request statistics for time range or full chain
+ */
+message BlockchainStatisticsRequest {
+  int32 time_window_minutes = 1;       // Time window (0 = all time)
+  bool include_detailed_metrics = 2;   // Include granular data
+}
+
+/**
+ * BlockchainStatistics contains aggregated network metrics
+ * Provides performance and health indicators
+ */
+message BlockchainStatistics {
+  // Block metrics
+  int64 total_blocks = 1;              // Total blocks in chain
+  int64 total_transactions = 2;        // Total transactions
+  double average_block_time_ms = 3;    // Average block creation time
+  double average_transaction_size_bytes = 4;
+
+  // Performance metrics
+  double transactions_per_second = 5;  // Current TPS
+  double peak_tps = 6;                 // Peak TPS observed
+  double average_tps = 7;              // Average TPS in window
+
+  // Blockchain health
+  int32 active_validators = 8;         // Number of active validators
+  int32 sync_status_percent = 9;       // Network sync progress (0-100)
+  int32 healthy_nodes = 10;            // Number of healthy nodes
+
+  // Transaction statistics
+  int64 pending_transactions = 11;     // Transactions in mempool
+  int64 confirmed_transactions = 12;   // Confirmed transactions
+  int64 failed_transactions = 13;      // Failed transactions
+
+  // Network status
+  string network_health_status = 14;   // HEALTHY, DEGRADED, CRITICAL
+  double average_block_size_bytes = 15;
+
+  // Time period
+  google.protobuf.Timestamp measurement_start = 16;
+  google.protobuf.Timestamp measurement_end = 17;
+  int64 measurement_duration_seconds = 18;
+}
+
+// ============================================================================
+// Block Streaming
+// ============================================================================
+
+/**
+ * BlockStreamRequest initiates real-time block stream
+ * Used for streamBlocks() server-side streaming RPC
+ */
+message BlockStreamRequest {
+  int64 start_from_height = 1;         // Starting block height
+  int32 include_transactions = 2;      // 0=No, 1=Hashes only, 2=Full tx
+  int32 stream_timeout_seconds = 3;    // Stream timeout
+  bool only_new_blocks = 4;            // Only stream new blocks after request
+}
+
+/**
+ * BlockStreamEvent represents a single streamed block
+ * Sent periodically in streamBlocks() response stream
+ */
+message BlockStreamEvent {
+  Block block = 1;                     // Block data
+  repeated Transaction transactions = 2;  // Transactions (if requested)
+  string stream_id = 3;                // Stream identifier
+  int64 event_sequence = 4;            // Event sequence number
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+/**
+ * BlockStreamCompletion sent when stream ends normally
+ * Indicates successful stream completion
+ */
+message BlockStreamCompletion {
+  string stream_id = 1;
+  int64 total_blocks_streamed = 2;
+  google.protobuf.Timestamp completion_time = 3;
+  string completion_reason = 4;        // TIMEOUT, CLIENT_REQUEST, END_OF_CHAIN
+}
+
+// ============================================================================
+// Health and Status Messages
+// ============================================================================
+
+/**
+ * BlockchainHealthStatus provides chain health indicators
+ * Used internally for monitoring
+ */
+message BlockchainHealthStatus {
+  HealthStatus overall_status = 1;
+  int64 last_block_height = 2;
+  google.protobuf.Timestamp last_block_time = 3;
+  int32 sync_progress_percent = 4;
+  int32 active_peer_count = 5;
+  repeated string issues = 6;
+}
+
+/**
+ * Service gRPC definition for BlockchainService
+ * Defines 7 RPC methods for blockchain operations
+ */
+service BlockchainService {
+  /**
+   * createBlock creates a new block with given transactions
+   * RPC: Unary (Uni<Block>)
+   * Input: BlockCreationRequest
+   * Output: BlockCreationResponse
+   * Timeout: 30 seconds
+   * Purpose: Create new block during consensus round
+   */
+  rpc createBlock(BlockCreationRequest) returns (BlockCreationResponse);
+
+  /**
+   * validateBlock validates block integrity and structure
+   * RPC: Unary (Uni<BlockValidationResult>)
+   * Input: BlockValidationRequest
+   * Output: BlockValidationResult
+   * Timeout: 10 seconds
+   * Purpose: Verify block before adding to chain
+   */
+  rpc validateBlock(BlockValidationRequest) returns (BlockValidationResult);
+
+  /**
+   * getBlockDetails retrieves block metadata from cache
+   * RPC: Unary (Uni<BlockDetailsResponse>)
+   * Input: BlockDetailsRequest
+   * Output: BlockDetailsResponse
+   * Timeout: 5 seconds
+   * Purpose: Efficient block retrieval by hash or height
+   */
+  rpc getBlockDetails(BlockDetailsRequest) returns (BlockDetailsResponse);
+
+  /**
+   * executeTransaction executes transaction on blockchain
+   * RPC: Unary (Uni<TransactionExecutionResponse>)
+   * Input: TransactionExecutionRequest
+   * Output: TransactionExecutionResponse
+   * Timeout: 20 seconds
+   * Purpose: Execute transaction and record state changes
+   */
+  rpc executeTransaction(TransactionExecutionRequest) returns (TransactionExecutionResponse);
+
+  /**
+   * verifyTransaction verifies transaction inclusion via Merkle proof
+   * RPC: Unary (Uni<TransactionVerificationResult>)
+   * Input: TransactionVerificationRequest
+   * Output: TransactionVerificationResult
+   * Timeout: 10 seconds
+   * Purpose: Cryptographically verify transaction in block
+   */
+  rpc verifyTransaction(TransactionVerificationRequest) returns (TransactionVerificationResult);
+
+  /**
+   * getBlockchainStatistics returns aggregated network metrics
+   * RPC: Unary (Uni<BlockchainStatistics>)
+   * Input: BlockchainStatisticsRequest
+   * Output: BlockchainStatistics
+   * Timeout: 15 seconds
+   * Purpose: Monitor network performance and health
+   */
+  rpc getBlockchainStatistics(BlockchainStatisticsRequest) returns (BlockchainStatistics);
+
+  /**
+   * streamBlocks streams new blocks in real-time
+   * RPC: Server-side Streaming (Multi<BlockStreamEvent>)
+   * Input: BlockStreamRequest
+   * Output: stream BlockStreamEvent
+   * Timeout: 300 seconds (5 minutes)
+   * Purpose: Real-time block stream subscription
+   */
+  rpc streamBlocks(BlockStreamRequest) returns (stream BlockStreamEvent);
+}

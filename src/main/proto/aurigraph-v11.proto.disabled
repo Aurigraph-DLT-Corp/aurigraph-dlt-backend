@@ -1,0 +1,299 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "io.aurigraph.v11.grpc";
+option java_outer_classname = "AurigraphV11Proto";
+
+package aurigraph.v11;
+
+import "google/protobuf/timestamp.proto";
+
+// Core Aurigraph V11 gRPC Service
+service AurigraphV11Service {
+  // Transaction Operations
+  rpc ProcessTransaction(TransactionRequest) returns (TransactionResponse);
+  rpc BatchProcessTransactions(BatchTransactionRequest) returns (BatchTransactionResponse);
+  rpc GetTransaction(TransactionQuery) returns (TransactionResponse);
+  rpc GetTransactionStatus(TransactionQuery) returns (TransactionStatusResponse);
+
+  // Block Operations
+  rpc GetBlock(BlockQuery) returns (BlockResponse);
+  rpc GetLatestBlock(LatestBlockQuery) returns (BlockResponse);
+
+  // Health and Status
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+  rpc GetSystemStatus(SystemStatusRequest) returns (SystemStatusResponse);
+  rpc GetPerformanceMetrics(PerformanceMetricsRequest) returns (PerformanceMetricsResponse);
+
+  // Node Operations
+  rpc RegisterNode(NodeRegistrationRequest) returns (NodeRegistrationResponse);
+  rpc GetNodeInfo(NodeInfoRequest) returns (NodeInfoResponse);
+
+  // Streaming Operations
+  rpc StreamTransactions(stream TransactionRequest) returns (stream TransactionResponse);
+  rpc StreamBlocks(BlockStreamRequest) returns (stream BlockResponse);
+}
+
+// Transaction Request
+message TransactionRequest {
+  string transaction_id = 1;
+  string from_address = 2;
+  string to_address = 3;
+  double amount = 4;
+  uint64 gas_limit = 5;
+  uint64 gas_price = 6;
+  bytes data = 7;
+  string signature = 8;
+  google.protobuf.Timestamp timestamp = 9;
+  map<string, string> metadata = 10;
+}
+
+// Transaction Response
+message TransactionResponse {
+  bool success = 1;
+  string transaction_id = 2;
+  string transaction_hash = 3;
+  uint64 block_number = 4;
+  TransactionStatus status = 5;
+  string error_message = 6;
+  google.protobuf.Timestamp processed_at = 7;
+  uint64 gas_used = 8;
+  TransactionReceipt receipt = 9;
+}
+
+// Transaction Status Enum
+enum TransactionStatus {
+  TRANSACTION_UNKNOWN = 0;
+  TRANSACTION_PENDING = 1;
+  TRANSACTION_PROCESSING = 2;
+  TRANSACTION_CONFIRMED = 3;
+  TRANSACTION_FAILED = 4;
+  TRANSACTION_REJECTED = 5;
+}
+
+// Transaction Receipt
+message TransactionReceipt {
+  string transaction_hash = 1;
+  uint64 block_number = 2;
+  string block_hash = 3;
+  uint64 gas_used = 4;
+  uint64 cumulative_gas_used = 5;
+  repeated Log logs = 6;
+  google.protobuf.Timestamp timestamp = 7;
+}
+
+// Log Entry
+message Log {
+  string address = 1;
+  repeated string topics = 2;
+  bytes data = 3;
+  uint64 log_index = 4;
+}
+
+// Batch Transaction Request
+message BatchTransactionRequest {
+  repeated TransactionRequest transactions = 1;
+  bool parallel_processing = 2;
+  uint32 batch_size = 3;
+  uint32 priority = 4;
+}
+
+// Batch Transaction Response
+message BatchTransactionResponse {
+  bool success = 1;
+  uint32 total_requested = 2;
+  uint32 total_succeeded = 3;
+  uint32 total_failed = 4;
+  repeated TransactionResponse responses = 5;
+  repeated string error_messages = 6;
+  uint64 processing_time_ms = 7;
+  double throughput_tps = 8;
+}
+
+// Transaction Query
+message TransactionQuery {
+  string transaction_id = 1;
+  string transaction_hash = 2;
+  bool include_receipt = 3;
+}
+
+// Transaction Status Response
+message TransactionStatusResponse {
+  string transaction_id = 1;
+  TransactionStatus status = 2;
+  uint64 confirmations = 3;
+  uint64 block_number = 4;
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+// Block Query
+message BlockQuery {
+  uint64 block_number = 1;
+  string block_hash = 2;
+  bool include_transactions = 3;
+}
+
+// Latest Block Query
+message LatestBlockQuery {
+  uint32 count = 1;
+  bool include_transactions = 2;
+}
+
+// Block Response
+message BlockResponse {
+  bool success = 1;
+  uint64 block_number = 2;
+  string block_hash = 3;
+  string previous_hash = 4;
+  google.protobuf.Timestamp timestamp = 5;
+  repeated TransactionResponse transactions = 6;
+  string state_root = 7;
+  string transactions_root = 8;
+  string receipts_root = 9;
+  uint64 gas_used = 10;
+  uint64 gas_limit = 11;
+  string miner = 12;
+  uint64 difficulty = 13;
+}
+
+// Health Check Request
+message HealthCheckRequest {
+  string service_name = 1;
+}
+
+// Health Check Response
+message HealthCheckResponse {
+  HealthStatus status = 1;
+  string message = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  map<string, string> details = 4;
+}
+
+// Health Status Enum
+enum HealthStatus {
+  HEALTH_UNKNOWN = 0;
+  HEALTH_SERVING = 1;
+  HEALTH_NOT_SERVING = 2;
+  HEALTH_DEGRADED = 3;
+}
+
+// System Status Request
+message SystemStatusRequest {
+  bool include_metrics = 1;
+  bool include_node_info = 2;
+}
+
+// System Status Response
+message SystemStatusResponse {
+  bool healthy = 1;
+  uint64 current_block = 2;
+  uint64 total_transactions = 3;
+  uint32 connected_peers = 4;
+  string consensus_algorithm = 5;
+  double current_tps = 6;
+  google.protobuf.Timestamp uptime_start = 7;
+  SystemMetrics metrics = 8;
+  NodeInfo node_info = 9;
+}
+
+// System Metrics
+message SystemMetrics {
+  double cpu_usage_percent = 1;
+  uint64 memory_used_bytes = 2;
+  uint64 memory_total_bytes = 3;
+  uint64 disk_used_bytes = 4;
+  uint64 disk_total_bytes = 5;
+  uint32 active_threads = 6;
+  double network_in_mbps = 7;
+  double network_out_mbps = 8;
+}
+
+// Node Info
+message NodeInfo {
+  string node_id = 1;
+  string node_type = 2;
+  string version = 3;
+  string network = 4;
+  repeated string capabilities = 5;
+  google.protobuf.Timestamp started_at = 6;
+}
+
+// Performance Metrics Request
+message PerformanceMetricsRequest {
+  uint32 time_window_seconds = 1;
+  bool include_detailed = 2;
+}
+
+// Performance Metrics Response
+message PerformanceMetricsResponse {
+  double current_tps = 1;
+  double peak_tps = 2;
+  double average_tps = 3;
+  double p99_latency_ms = 4;
+  double p95_latency_ms = 5;
+  double average_latency_ms = 6;
+  uint64 total_transactions_processed = 7;
+  uint64 failed_transactions = 8;
+  double success_rate = 9;
+  PerformanceGrade performance_grade = 10;
+  map<string, double> detailed_metrics = 11;
+}
+
+// Performance Grade Enum
+enum PerformanceGrade {
+  GRADE_UNKNOWN = 0;
+  GRADE_EXCELLENT = 1;  // 3M+ TPS
+  GRADE_OUTSTANDING = 2; // 2M+ TPS
+  GRADE_VERY_GOOD = 3;   // 1M+ TPS
+  GRADE_GOOD = 4;        // 500K+ TPS
+  GRADE_NEEDS_OPTIMIZATION = 5;
+}
+
+// Node Registration Request
+message NodeRegistrationRequest {
+  string node_id = 1;
+  string node_type = 2;
+  string public_key = 3;
+  string network_address = 4;
+  uint32 grpc_port = 5;
+  repeated string capabilities = 6;
+  map<string, string> metadata = 7;
+}
+
+// Node Registration Response
+message NodeRegistrationResponse {
+  bool success = 1;
+  string node_id = 2;
+  NodeStatus status = 3;
+  string error_message = 4;
+  google.protobuf.Timestamp registered_at = 5;
+}
+
+// Node Status Enum
+enum NodeStatus {
+  NODE_UNKNOWN = 0;
+  NODE_ACTIVE = 1;
+  NODE_INACTIVE = 2;
+  NODE_SUSPENDED = 3;
+  NODE_REMOVED = 4;
+}
+
+// Node Info Request
+message NodeInfoRequest {
+  string node_id = 1;
+}
+
+// Node Info Response
+message NodeInfoResponse {
+  bool success = 1;
+  NodeInfo node_info = 2;
+  NodeStatus status = 3;
+  map<string, string> stats = 4;
+}
+
+// Block Stream Request
+message BlockStreamRequest {
+  uint64 start_block = 1;
+  bool include_transactions = 2;
+  uint32 buffer_size = 3;
+}
