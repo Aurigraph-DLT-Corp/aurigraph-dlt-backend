@@ -64,12 +64,35 @@ yarn-error.log
 docker-compose.override.yml
 .dockerignore
 
-# Environment
+# Environment & Secrets
 .env
 .env.local
 .env.*.local
+.env.*.local.secret
+.env.production.local
+.env.test.local
 application-local.properties
 application-dev.properties
+application-prod.properties
+
+# Secrets & Credentials
+.secrets/
+**/secrets.json
+**/*.key
+**/*.pem
+**/*.pfx
+*.key.txt
+*.secret.txt
+
+# API Keys & Credentials
+*API_KEY*
+*TOKEN*
+*SECRET*
+*PASSWORD*
+keystore.jks
+truststore.jks
+server.key
+server.crt
 
 # Database
 *.db
